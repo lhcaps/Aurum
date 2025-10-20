@@ -1,14 +1,10 @@
 const AdminDashboardService = require("../../services/admin/admin.dashboard.service");
 
 class AdminDashboardController {
-  // ✅ Lấy thống kê tổng quan
   static async getStats(req, res) {
     try {
       const stats = await AdminDashboardService.getStats();
-      res.json({
-        success: true,
-        data: stats
-      });
+      res.json({ success: true, data: stats });
     } catch (err) {
       res.status(500).json({
         success: false,
