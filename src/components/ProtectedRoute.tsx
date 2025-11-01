@@ -4,12 +4,12 @@ import api from "@/lib/api";
 
 /**
  * =============================================================
- * 🧩 ProtectedRoute Component
+ * 🧩 ProtectedRoute (Stable Production Version)
  * -------------------------------------------------------------
- * ✅ Kiểm tra accessToken trong localStorage
- * ✅ Nếu token hết hạn → tự gọi /auth/refresh
- * ✅ Nếu refresh thành công → cập nhật token mới, cho phép truy cập
- * ✅ Nếu refresh thất bại → xóa localStorage và chuyển về /auth/login
+ * ✅ Kiểm tra accessToken & refreshToken
+ * ✅ Tự refresh token khi hết hạn
+ * ✅ Chỉ redirect nếu refresh thật sự thất bại
+ * ✅ Không logout khi chỉ lỗi mạng tạm thời
  * =============================================================
  */
 
@@ -18,7 +18,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const [authorized, setAuthorized] = useState<boolean | null>(null); // null = đang kiểm tra
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -32,13 +32,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       }
 
       try {
-        // 🟢 Gửi request nhỏ để kiểm tra accessToken còn hạn
+        // 🟢 Kiểm tra token hợp lệ bằng /auth/profile
         await api.get("/auth/profile");
         setAuthorized(true);
       } catch (err: any) {
         const status = err.response?.status;
 
-        // ⚠️ Token hết hạn → thử refresh
+        // ⚠️ Nếu token hết hạn → thử refresh
         if (status === 401 && refreshToken) {
           try {
             const res = await api.post("/auth/refresh", { refreshToken });
@@ -66,7 +66,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     checkAuth();
   }, []);
 
-  // ⏳ Loading state khi đang kiểm tra token
+  // 🕓 Loading khi đang xác thực
   if (authorized === null) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
@@ -75,11 +75,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // 🚪 Nếu chưa đăng nhập → redirect về trang login
+  // 🚪 Chưa đăng nhập → redirect
   if (!authorized) {
     return <Navigate to="/auth/login" replace />;
   }
 
-  // ✅ Nếu token hợp lệ → render nội dung bên trong
+  // ✅ Token hợp lệ → render children
   return <>{children}</>;
 }

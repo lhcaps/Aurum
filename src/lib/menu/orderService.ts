@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 export interface OrderItemPayload {
   productId: number;
@@ -20,6 +20,7 @@ export interface OrderPayload {
 
 export const orderService = {
   async create(order: OrderPayload, token: string) {
+    console.log("🛰️ [orderService] POST", `${API_BASE_URL}/orders`, order);
     const res = await fetch(`${API_BASE_URL}/orders`, {
       method: "POST",
       headers: {
@@ -28,7 +29,11 @@ export const orderService = {
       },
       body: JSON.stringify(order),
     });
-    if (!res.ok) throw new Error("Không thể tạo đơn hàng");
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("❌ [orderService] Error:", res.status, text);
+      throw new Error("Không thể tạo đơn hàng");
+    }
     return await res.json();
   },
 };

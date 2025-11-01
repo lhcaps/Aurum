@@ -1,33 +1,35 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, Wallet, CreditCard, Gift } from 'lucide-react';
-import { useCart } from '@/contexts/CartContext';
-import { Button } from '@/components/profile-ui/button';
-import { Input } from '@/components/profile-ui/input';
-import { Label } from '@/components/profile-ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/profile-ui/radio-group';
-import { Textarea } from '@/components/profile-ui/textarea';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { voucherService, type Voucher } from '@/lib/menu/voucherService';
+import { useState, useEffect } from "react";
+import { MapPin, Wallet, CreditCard, Gift } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { Button } from "@/components/profile-ui/button";
+import { Input } from "@/components/profile-ui/input";
+import { Label } from "@/components/profile-ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/profile-ui/radio-group";
+import { Textarea } from "@/components/profile-ui/textarea";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { voucherService, type Voucher } from "@/lib/menu/voucherService";
+import { orderService } from "@/lib/menu/orderService";
 
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
 
-  const [pickupMethod, setPickupMethod] = useState('delivery');
-  const [paymentMethod, setPaymentMethod] = useState('momo');
+  const [pickupMethod, setPickupMethod] = useState("delivery");
+  const [paymentMethod, setPaymentMethod] = useState("momo");
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    note: '',
+    name: "",
+    phone: "",
+    address: "",
+    note: "",
   });
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
 
   const serviceFee = 1.0;
-  const deliveryFee = pickupMethod === 'delivery' ? 2.0 : 0;
+  const deliveryFee = pickupMethod === "delivery" ? 2.0 : 0;
 
   // 🔹 Fetch voucher khả dụng
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function Checkout() {
         const data = await voucherService.getAvailableVouchers();
         setVouchers(data);
       } catch {
-        console.warn('⚠️ Không thể tải voucher');
+        console.warn("⚠️ Không thể tải voucher");
       }
     };
     loadVouchers();
@@ -48,28 +50,149 @@ export default function Checkout() {
     : 0;
   const total = subtotal + serviceFee + deliveryFee - discountAmount;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // =====================================================
+  // 🧾 Gửi đơn hàng tới Backend
+  // =====================================================
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log("🧾 [Checkout] ===== DEBUG START =====");
+    console.log("🧺 items trong giỏ hàng:", items);
+
     if (!formData.name || !formData.phone) {
-      toast.error('Vui lòng điền đầy đủ thông tin');
+      toast.error("Vui lòng điền đầy đủ họ tên và số điện thoại");
+      console.warn("⚠️ Thiếu thông tin khách hàng:", formData);
       return;
     }
 
-    if (pickupMethod === 'delivery' && !formData.address) {
-      toast.error('Vui lòng nhập địa chỉ giao hàng');
+    if (pickupMethod === "delivery" && !formData.address) {
+      toast.error("Vui lòng nhập địa chỉ giao hàng");
+      console.warn("⚠️ Thiếu địa chỉ giao hàng");
       return;
     }
 
-    const orderId = 'PL' + Date.now().toString().slice(-8);
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("accessToken");
+    if (!token) {
+      toast.error("Bạn cần đăng nhập để đặt hàng!");
+      console.warn("⚠️ Không có token đăng nhập trong localStorage");
+      return;
+    }
 
-    clearCart();
-    navigate('/menu/ordersuccess', {
-      state: { orderId, total, selectedVoucher },
+    console.log("📋 Danh sách items trong giỏ (debug chi tiết):");
+    console.table(
+      items.map((it) => ({
+        name: it?.name,
+        id: it?.id,
+        typeOfId: typeof it?.id,
+        quantity: it?.quantity,
+        price: it?.price,
+      }))
+    );
+    console.log("🧾 [Checkout] ===== DEBUG productId CHECK =====");
+    items.forEach((it, idx) => {
+      console.log(`#${idx + 1}`, {
+        id: it.id,
+        productId: it.productId,
+        typeOfProductId: typeof it.productId,
+        quantity: it.quantity,
+        price: it.price,
+      });
     });
-    toast.success('Đặt hàng thành công!');
+
+    // 🔹 Kiểm tra dữ liệu giỏ hàng thật sự
+    // 🔹 Kiểm tra dữ liệu giỏ hàng thật sự
+    const validItems = items.filter((it) => {
+      const isValid =
+        it &&
+        typeof it.productId === "number" &&
+        !isNaN(it.productId) &&
+        it.productId > 0 &&
+        it.quantity > 0;
+
+      if (!isValid) {
+        console.warn("⚠️ Sản phẩm không hợp lệ bị loại:", {
+          id: it?.id,
+          productId: it?.productId,
+          name: it?.name,
+          quantity: it?.quantity,
+          price: it?.price,
+        });
+      }
+
+      return isValid;
+    });
+
+
+    console.log("✅ validItems sau khi lọc:", validItems);
+
+    if (validItems.length === 0) {
+      toast.error("Giỏ hàng của bạn trống hoặc sản phẩm không hợp lệ!");
+      console.warn("❌ Không có sản phẩm hợp lệ trong giỏ hàng!");
+      console.log("🧾 [Checkout] ===== DEBUG END =====");
+      return;
+    }
+
+    // 🔹 Ánh xạ phương thức thanh toán
+    const paymentMap: Record<string, string> = {
+      cash: "COD",
+      momo: "MOMO",
+      zalopay: "ZALOPAY",
+    };
+    const paymentForBE = paymentMap[paymentMethod] ?? paymentMethod;
+
+    // 🔹 Chuẩn bị payload gửi BE
+    const orderPayload = {
+      storeId: 1,
+      paymentMethod: paymentForBE,
+      shippingAddress:
+        pickupMethod === "delivery" ? formData.address : "Nhận tại cửa hàng",
+      lat: 10.776889,
+      lng: 106.700806,
+      items: validItems.map((it) => ({
+        productId: it.productId, // ✅ giữ nguyên number
+        quantity: it.quantity,
+        price: it.price,
+        size: it.size || "",
+        toppings: it.toppings || [],
+        options: it.options || {},
+      })),
+    };
+
+
+    console.log("📦 Payload gửi về backend:", orderPayload);
+
+    // =====================================================
+    // 🧾 Gửi đơn hàng tới Backend
+    // =====================================================
+    try {
+      setLoading(true);
+      console.log("🛰️ [Checkout] Gửi đơn hàng:", orderPayload);
+
+      const res = await orderService.create(orderPayload, token);
+      console.log("✅ [Checkout] Đặt hàng thành công:", res);
+
+      clearCart();
+      toast.success("Đặt hàng thành công!");
+      navigate("/menu/ordersuccess", {
+        state: {
+          orderId: res?.data?.orderId ?? "PL" + Date.now().toString().slice(-8),
+          total,
+          selectedVoucher,
+        },
+      });
+    } catch (err) {
+      console.error("❌ [Checkout] Lỗi khi đặt hàng:", err);
+    } finally {
+      setLoading(false);
+      console.log("🧾 [Checkout] ===== DEBUG END =====");
+    }
   };
 
+
+  // =====================================================
+  // 🧱 Giao diện
+  // =====================================================
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -141,7 +264,7 @@ export default function Checkout() {
               </div>
             </RadioGroup>
 
-            {pickupMethod === 'delivery' && (
+            {pickupMethod === "delivery" && (
               <div className="mt-4">
                 <Label htmlFor="address">Địa chỉ giao hàng *</Label>
                 <Textarea
@@ -244,11 +367,10 @@ export default function Checkout() {
                         selectedVoucher?.id === v.id ? null : v
                       )
                     }
-                    className={`p-4 border-2 rounded-xl text-left transition-colors ${
-                      selectedVoucher?.id === v.id
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border hover:border-primary'
-                    }`}
+                    className={`p-4 border-2 rounded-xl text-left transition-colors ${selectedVoucher?.id === v.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary"
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-card-foreground">
@@ -259,7 +381,7 @@ export default function Checkout() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      HSD: {new Date(v.expiryDate).toLocaleDateString('vi-VN')}
+                      HSD: {new Date(v.expiryDate).toLocaleDateString("vi-VN")}
                     </p>
                   </button>
                 ))}
@@ -268,8 +390,8 @@ export default function Checkout() {
 
             {selectedVoucher && (
               <p className="text-sm text-green-600 mt-3">
-                Đã áp dụng voucher: <b>{selectedVoucher.code}</b> (
-                -{selectedVoucher.discountPercent}%)
+                Đã áp dụng voucher: <b>{selectedVoucher.code}</b> (-
+                {selectedVoucher.discountPercent}%)
               </p>
             )}
           </div>
@@ -303,7 +425,9 @@ export default function Checkout() {
                 {deliveryFee > 0 && (
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-muted-foreground">Phí giao hàng</span>
-                    <span className="font-semibold">+${deliveryFee.toFixed(2)}</span>
+                    <span className="font-semibold">
+                      +${deliveryFee.toFixed(2)}
+                    </span>
                   </div>
                 )}
                 {selectedVoucher && (
@@ -321,9 +445,10 @@ export default function Checkout() {
 
             <Button
               type="submit"
+              disabled={loading}
               className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground rounded-xl h-14 text-lg font-semibold shadow-medium"
             >
-              Xác nhận đặt hàng
+              {loading ? "Đang xử lý..." : "Xác nhận đặt hàng"}
             </Button>
           </div>
         </form>

@@ -81,20 +81,39 @@ const ProductModal = () => {
 
   // 🛒 Thêm vào giỏ
   const handleAddToCart = () => {
+    const numericId = Number(product.id); // ✅ ép thành số
+    if (isNaN(numericId)) {
+      toast.error("Sản phẩm không hợp lệ, không thể thêm vào giỏ hàng!");
+      return;
+    }
+
     addItem({
-      productId: product.id,
+      productId: numericId,
       name: product.name,
       image: product.image,
       size: selectedSize,
       toppings: selectedToppings,
       price: calculatePrice() / quantity,
       quantity,
+      options: {
+        sugar: customizations.sweetness,
+        ice: customizations.ice,
+      },
     });
 
-    toast.success("Đã thêm vào giỏ hàng!", {
-      description: `${product.name} - ${quantity} ly`,
+    toast.success("🛍️ Đã thêm vào giỏ hàng!", {
+      description: `${product.name} - ${quantity} ly (${selectedSize})`,
+    });
+
+    console.log("🧾 [DEBUG] Thêm vào giỏ hàng:", {
+      productId: numericId,
+      size: selectedSize,
+      toppings: selectedToppings,
+      options: customizations,
+      price: calculatePrice() / quantity,
     });
   };
+
 
   // 🧊 Toggle topping
   const toggleTopping = (id: string) => {
@@ -105,207 +124,207 @@ const ProductModal = () => {
 
   return (
 
-      <div className="container mx-auto px-4 py-8">
-        {/* 🧭 Breadcrumb */}
-        <div className="text-sm text-muted-foreground mb-6">
-          <span>Trang chủ</span>
-          <span className="mx-2">/</span>
-          <span>Menu</span>
-          <span className="mx-2">/</span>
-          <span className="text-foreground font-semibold">
-            {product.name}
-          </span>
+    <div className="container mx-auto px-4 py-8">
+      {/* 🧭 Breadcrumb */}
+      <div className="text-sm text-muted-foreground mb-6">
+        <span>Trang chủ</span>
+        <span className="mx-2">/</span>
+        <span>Menu</span>
+        <span className="mx-2">/</span>
+        <span className="text-foreground font-semibold">
+          {product.name}
+        </span>
+      </div>
+
+      {/* 🔹 Grid chính */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        {/* Ảnh sản phẩm */}
+        <div className="space-y-4">
+          <Card className="overflow-hidden bg-muted/30">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-[420px] object-cover"
+            />
+          </Card>
+
+          {/* Rating + Tag */}
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="p-4 text-center">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                <span className="font-bold text-lg">{product.rating}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {product.reviews} đánh giá
+              </p>
+            </Card>
+            <Card className="p-4 text-center">
+              <div className="font-bold text-lg mb-1 text-primary">
+                Best Seller
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Top 5 bán chạy
+              </p>
+            </Card>
+          </div>
         </div>
 
-        {/* 🔹 Grid chính */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Ảnh sản phẩm */}
-          <div className="space-y-4">
-            <Card className="overflow-hidden bg-muted/30">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-[420px] object-cover"
-              />
-            </Card>
+        {/* Thông tin chi tiết */}
+        <div className="space-y-6">
+          {/* Tiêu đề */}
+          <div className="flex items-start justify-between mb-2">
+            <h1 className="text-3xl font-bold text-foreground">
+              {product.name} ({selectedSize})
+            </h1>
+            <Button variant="ghost" size="icon">
+              <Heart className="w-6 h-6" />
+            </Button>
+          </div>
 
-            {/* Rating + Tag */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card className="p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  <span className="font-bold text-lg">{product.rating}</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {product.reviews} đánh giá
-                </p>
-              </Card>
-              <Card className="p-4 text-center">
-                <div className="font-bold text-lg mb-1 text-primary">
-                  Best Seller
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Top 5 bán chạy
-                </p>
-              </Card>
+          <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+
+          {/* Giá */}
+          <div className="flex items-baseline gap-3">
+            <span className="text-4xl font-bold text-primary">
+              {calculatePrice().toLocaleString()}đ
+            </span>
+            {selectedSize === "M" && (
+              <Badge variant="secondary">-14.000đ</Badge>
+            )}
+          </div>
+
+          {/* Mô tả */}
+          <p className="text-muted-foreground leading-relaxed">
+            {product.description}
+          </p>
+
+          {/* Kích cỡ */}
+          <div>
+            <label className="block text-sm font-medium mb-3">
+              Chọn kích cỡ
+            </label>
+            <div className="flex gap-3">
+              {product.sizes.map((size) => (
+                <Button
+                  key={size.id}
+                  variant={selectedSize === size.id ? "default" : "outline"}
+                  className="flex-1 h-12 text-lg font-medium"
+                  onClick={() => setSelectedSize(size.id)}
+                >
+                  {size.name}
+                  {size.price !== 0 && (
+                    <span className="ml-2 text-sm">
+                      ({size.price > 0 ? "+" : ""}
+                      {size.price.toLocaleString()}đ)
+                    </span>
+                  )}
+                </Button>
+              ))}
             </div>
           </div>
 
-          {/* Thông tin chi tiết */}
-          <div className="space-y-6">
-            {/* Tiêu đề */}
-            <div className="flex items-start justify-between mb-2">
-              <h1 className="text-3xl font-bold text-foreground">
-                {product.name} ({selectedSize})
-              </h1>
-              <Button variant="ghost" size="icon">
-                <Heart className="w-6 h-6" />
-              </Button>
-            </div>
-
-            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
-
-            {/* Giá */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-primary">
-                {calculatePrice().toLocaleString()}đ
-              </span>
-              {selectedSize === "M" && (
-                <Badge variant="secondary">-14.000đ</Badge>
-              )}
-            </div>
-
-            {/* Mô tả */}
-            <p className="text-muted-foreground leading-relaxed">
-              {product.description}
-            </p>
-
-            {/* Kích cỡ */}
-            <div>
+          {/* Tùy chỉnh */}
+          {product.customizations.map((option) => (
+            <div key={option.id}>
               <label className="block text-sm font-medium mb-3">
-                Chọn kích cỡ
+                {option.label}
               </label>
               <div className="flex gap-3">
-                {product.sizes.map((size) => (
+                {option.choices.map((choice) => (
                   <Button
-                    key={size.id}
-                    variant={selectedSize === size.id ? "default" : "outline"}
-                    className="flex-1 h-12 text-lg font-medium"
-                    onClick={() => setSelectedSize(size.id)}
-                  >
-                    {size.name}
-                    {size.price !== 0 && (
-                      <span className="ml-2 text-sm">
-                        ({size.price > 0 ? "+" : ""}
-                        {size.price.toLocaleString()}đ)
-                      </span>
-                    )}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tùy chỉnh */}
-            {product.customizations.map((option) => (
-              <div key={option.id}>
-                <label className="block text-sm font-medium mb-3">
-                  {option.label}
-                </label>
-                <div className="flex gap-3">
-                  {option.choices.map((choice) => (
-                    <Button
-                      key={choice.value}
-                      variant={
-                        customizations[option.id] === choice.value
-                          ? "default"
-                          : "outline"
-                      }
-                      className="flex-1"
-                      onClick={() =>
-                        setCustomizations((prev) => ({
-                          ...prev,
-                          [option.id]: choice.value,
-                        }))
-                      }
-                    >
-                      {choice.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* Toppings */}
-            <div>
-              <label className="block text-sm font-medium mb-3">
-                Topping (tùy chọn)
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {product.toppings.map((topping) => (
-                  <Button
-                    key={topping.id}
+                    key={choice.value}
                     variant={
-                      selectedToppings.includes(topping.id)
+                      customizations[option.id] === choice.value
                         ? "default"
                         : "outline"
                     }
-                    className="justify-between"
-                    onClick={() => toggleTopping(topping.id)}
+                    className="flex-1"
+                    onClick={() =>
+                      setCustomizations((prev) => ({
+                        ...prev,
+                        [option.id]: choice.value,
+                      }))
+                    }
                   >
-                    <span>{topping.name}</span>
-                    <span className="text-primary">
-                      +{topping.price.toLocaleString()}đ
-                    </span>
+                    {choice.label}
                   </Button>
                 ))}
               </div>
             </div>
+          ))}
 
-            {/* Số lượng + Thêm giỏ */}
-            <div className="border-t border-border pt-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex items-center border border-border rounded-lg">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      setQuantity((q) => Math.max(1, q - 1))
-                    }
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <span className="px-6 font-medium">{quantity}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setQuantity((q) => q + 1)}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
+          {/* Toppings */}
+          <div>
+            <label className="block text-sm font-medium mb-3">
+              Topping (tùy chọn)
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {product.toppings.map((topping) => (
+                <Button
+                  key={topping.id}
+                  variant={
+                    selectedToppings.includes(topping.id)
+                      ? "default"
+                      : "outline"
+                  }
+                  className="justify-between"
+                  onClick={() => toggleTopping(topping.id)}
+                >
+                  <span>{topping.name}</span>
+                  <span className="text-primary">
+                    +{topping.price.toLocaleString()}đ
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Số lượng + Thêm giỏ */}
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex items-center border border-border rounded-lg">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() =>
+                    setQuantity((q) => Math.max(1, q - 1))
+                  }
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <span className="px-6 font-medium">{quantity}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setQuantity((q) => q + 1)}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
               </div>
-
-              <Button
-                className="w-full h-14 text-lg font-semibold"
-                onClick={handleAddToCart}
-              >
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                Thêm vào giỏ hàng ({calculatePrice().toLocaleString()}đ)
-              </Button>
             </div>
 
-            {/* Thông tin thêm */}
-            <Card className="p-4 bg-muted/30">
-              <h3 className="font-medium mb-2">Thông tin thêm</h3>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• Giao hàng trong vòng 30-45 phút</li>
-                <li>• Miễn phí giao hàng cho đơn từ 100.000đ</li>
-                <li>• Đổi trả trong 24h nếu có vấn đề</li>
-              </ul>
-            </Card>
+            <Button
+              className="w-full h-14 text-lg font-semibold"
+              onClick={handleAddToCart}
+            >
+              <ShoppingCart className="w-5 h-5 mr-2" />
+              Thêm vào giỏ hàng ({calculatePrice().toLocaleString()}đ)
+            </Button>
           </div>
+
+          {/* Thông tin thêm */}
+          <Card className="p-4 bg-muted/30">
+            <h3 className="font-medium mb-2">Thông tin thêm</h3>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              <li>• Giao hàng trong vòng 30-45 phút</li>
+              <li>• Miễn phí giao hàng cho đơn từ 100.000đ</li>
+              <li>• Đổi trả trong 24h nếu có vấn đề</li>
+            </ul>
+          </Card>
         </div>
       </div>
+    </div>
   );
 };
 

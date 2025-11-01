@@ -1,20 +1,17 @@
 import axios from "axios";
 
 // ============================================================
-// 🌐 API CONFIG - DYNAMIC BASE URL
+// 🌐 API CONFIG
 // ============================================================
 const baseURL =
   import.meta.env.VITE_API_BASE_URL?.trim() || "http://localhost:3000/api";
 
 console.log("🌍 API Base URL:", baseURL);
 
-// ⚙️ Tạo axios instance mặc định
 const api = axios.create({
   baseURL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-  withCredentials: true, // Cho phép gửi cookie / token cross-domain
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 // ============================================================
@@ -23,16 +20,14 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("accessToken");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 // ============================================================
-// ♻️ Hàm làm mới token (refresh token)
+// ♻️ Refresh Token Handler
 // ============================================================
 let isRefreshing = false;
 let failedQueue: any[] = [];
@@ -96,17 +91,19 @@ api.interceptors.response.use(
         processQueue(err, null);
         console.warn("🚫 Refresh token failed, logging out...");
 
+        // ✅ Logout dứt khoát, không delay
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         window.location.href = "/auth/login";
+
         return Promise.reject(err);
       } finally {
         isRefreshing = false;
       }
     }
 
-    // Lỗi CORS / Server Down
+    // 🚨 Lỗi mạng hoặc backend
     if (!error.response) {
       console.error("🚫 Không thể kết nối server. Kiểm tra backend!");
     } else {

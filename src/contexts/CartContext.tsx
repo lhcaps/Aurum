@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 
 // 🧾 Kiểu dữ liệu item trong giỏ hàng
 export interface CartItem {
-  id: string;
-  productId: number; // ✅ đổi sang number để khớp API
+  id: string; // id duy nhất trong giỏ
+  productId: number; // ID sản phẩm thực tế (để gửi API)
   name: string;
   price: number;
   image: string;
@@ -11,8 +11,6 @@ export interface CartItem {
   toppings: string[];
   quantity: number;
   note?: string;
-
-  // ✅ Thêm lựa chọn thêm đường / đá
   options?: {
     sugar?: string;
     ice?: string;
@@ -21,7 +19,7 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, "id">) => void;
+  addItem: (item: Partial<CartItem>) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   updateNote: (id: string, note: string) => void;
@@ -35,10 +33,57 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // 🛒 Thêm sản phẩm mới vào giỏ
-  const addItem = (item: Omit<CartItem, "id">) => {
-    const id = `${item.productId}-${item.size}-${item.toppings.join(",")}-${Date.now()}`;
-    setItems((prev) => [...prev, { ...item, id }]);
+  // 🛒 Thêm sản phẩm mới vào giỏ (tự hợp nhất nếu trùng)
+  const addItem = (item: Partial<CartItem>) => {
+    // ✅ Xử lý id sản phẩm (fallback)
+    const productId = Number(item.productId || item.id);
+    if (!productId || isNaN(productId)) {
+      console.warn("⚠️ Không có productId hợp lệ:", item);
+      return;
+    }
+
+    const size = item.size || "M";
+    const toppings = item.toppings || [];
+    const options = item.options || {};
+    const quantity = item.quantity || 1;
+
+    // ✅ Tạo mã id duy nhất trong giỏ
+    const uniqueId = `${productId}-${size}-${toppings.join(",")}`;
+
+    // Kiểm tra xem sản phẩm trùng (cùng loại, size, topping) đã có chưa
+    setItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (i) =>
+          i.productId === productId &&
+          i.size === size &&
+          JSON.stringify(i.toppings) === JSON.stringify(toppings)
+      );
+
+      if (existingIndex !== -1) {
+        // Nếu có, chỉ tăng số lượng
+        const updated = [...prev];
+        updated[existingIndex].quantity += quantity;
+        console.log("🔁 Tăng số lượng sản phẩm:", updated[existingIndex]);
+        return updated;
+      }
+
+      // Nếu chưa có, thêm mới
+      const newItem: CartItem = {
+        id: `${uniqueId}-${Date.now()}`,
+        productId,
+        name: item.name || "Sản phẩm chưa đặt tên",
+        price: item.price || 0,
+        image: item.image || "",
+        size,
+        toppings,
+        quantity,
+        note: item.note || "",
+        options,
+      };
+
+      console.log("🛒 Thêm mới vào giỏ:", newItem);
+      return [...prev, newItem];
+    });
   };
 
   // ❌ Xóa sản phẩm
@@ -48,19 +93,20 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   // 🔄 Cập nhật số lượng
   const updateQuantity = (id: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeItem(id);
-      return;
-    }
+    if (quantity <= 0) return removeItem(id);
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity } : item))
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity } : item
+      )
     );
   };
 
-  // ✏️ Ghi chú cho từng sản phẩm
+  // ✏️ Cập nhật ghi chú
   const updateNote = (id: string, note: string) => {
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, note } : item))
+      prev.map((item) =>
+        item.id === id ? { ...item, note } : item
+      )
     );
   };
 
@@ -91,6 +137,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// ✅ Hook tiện lợi
 export const useCart = () => {
   const context = useContext(CartContext);
   if (context === undefined) {

@@ -20,17 +20,21 @@ const Orders = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("accessToken") || localStorage.getItem("token");
         if (!token) {
-          toast.error("Vui lòng đăng nhập để xem đơn hàng");
+          toast.error("Vui lòng đăng nhập để xem đơn hàng!");
           navigate("/auth/login");
           return;
         }
 
         const data = await orderService.getUserOrders(token);
         setOrders(data);
-      } catch (err) {
-        toast.error("Không thể tải danh sách đơn hàng");
+      } catch (err: any) {
+        console.warn("⚠️ Không thể tải danh sách đơn hàng:", err?.message || err);
+
+        // ❌ KHÔNG logout nữa — chỉ cảnh báo
+        toast.warning("Không thể tải đơn hàng, vui lòng thử lại sau!");
+        // fallback: giữ data cũ
       } finally {
         setLoading(false);
       }

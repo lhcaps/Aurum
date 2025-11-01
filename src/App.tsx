@@ -1,9 +1,9 @@
 // =============================================================
 // 🌐 ROUTER APP - PHÚC LONG COFFEE & TEA
 // -------------------------------------------------------------
-// ✅ Tích hợp ProtectedRoute mới (tự refresh token khi hết hạn)
-// ✅ Gộp toàn bộ route logic gọn gàng, dễ maintain
-// ✅ Toast thông báo toàn cục + CartContext + MainLayout
+// ✅ Tích hợp ProtectedRoute (tự refresh token khi hết hạn)
+// ✅ Không logout khi điều hướng nội bộ /profile/*
+// ✅ Toast toàn cục + CartContext + MainLayout ổn định
 // =============================================================
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -27,16 +27,16 @@ import MenuNotFound from "@/pages/menu/NotFound";
 import MenuIndex from "@/pages/menu/Index";
 import OrderHistory from "@/pages/menu/OrderHistory";
 import ProductModal from "@/components/ProductModal";
-import Promotions from "@/pages/menu/Promotions"; // ✅ ưu đãi
+import Promotions from "@/pages/menu/Promotions"; // Ưu đãi
 
 // ===== PROFILE =====
 import ProfileHome from "@/pages/profile/Profile";
 import ProfileEdit from "@/pages/profile/ProfileEdit";
 import Orders from "@/pages/profile/Orders";
-import ProfileNotFound from "@/pages/profile/NotFound";
 import VoucherPage from "@/pages/profile/Voucher";
 import ReviewProduct from "@/pages/profile/ReviewProduct";
 import Settings from "@/pages/profile/Settings";
+import ProfileNotFound from "@/pages/profile/NotFound";
 
 // =============================================================
 // 🚀 MAIN APP COMPONENT
@@ -46,7 +46,9 @@ function App() {
     <BrowserRouter>
       <CartProvider>
         <Routes>
-          {/* ========== AUTH ========== */}
+          {/* ======================================================
+              🔐 AUTH AREA
+          ====================================================== */}
           <Route path="/auth">
             <Route index element={<Navigate to="/auth/login" replace />} />
             <Route path="login" element={<Login />} />
@@ -55,9 +57,11 @@ function App() {
             <Route path="*" element={<AuthNotFound />} />
           </Route>
 
-          {/* ========== MENU & PROFILE (MainLayout có sidebar) ========== */}
+          {/* ======================================================
+              ☕ MAIN APP (MENU + PROFILE)
+          ====================================================== */}
           <Route element={<MainLayout />}>
-            {/* MENU */}
+            {/* ---------- MENU ---------- */}
             <Route path="/menu">
               <Route index element={<MenuIndex />} />
               <Route path="index" element={<MenuIndex />} />
@@ -71,7 +75,7 @@ function App() {
               <Route path="*" element={<MenuNotFound />} />
             </Route>
 
-            {/* PROFILE (tất cả đều cần đăng nhập) */}
+            {/* ---------- PROFILE (mỗi route đều có ProtectedRoute riêng) ---------- */}
             <Route
               path="/profile"
               element={
@@ -90,6 +94,14 @@ function App() {
             />
             <Route
               path="/profile/orders"
+              element={
+                <ProtectedRoute>
+                  <Orders />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/orders/:status"
               element={
                 <ProtectedRoute>
                   <Orders />
@@ -130,17 +142,24 @@ function App() {
             />
           </Route>
 
-          {/* ========== MẶC ĐỊNH & 404 ========== */}
+          {/* ======================================================
+              🚪 DEFAULT ROUTE & 404 HANDLER
+          ====================================================== */}
           <Route path="/" element={<Navigate to="/auth/login" replace />} />
           <Route path="*" element={<Navigate to="/auth/login" replace />} />
         </Routes>
 
-        {/* ✅ Toast toàn cục */}
+        {/* ======================================================
+            🔔 GLOBAL TOASTER
+        ====================================================== */}
         <Toaster
           position="bottom-right"
           richColors
           toastOptions={{
-            style: { borderRadius: "10px", fontSize: "15px" },
+            style: {
+              borderRadius: "10px",
+              fontSize: "15px",
+            },
           }}
         />
       </CartProvider>
