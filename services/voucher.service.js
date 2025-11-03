@@ -64,7 +64,7 @@ class VoucherService {
   // ✅ Xác nhận sử dụng voucher
   static async confirm(code, orderId, userId = null) {
     const pool = await getPool();
-    const tx = new sql.Transaction(await poolPromise);
+    const tx = new sql.Transaction(pool);
     await tx.begin();
 
     try {
