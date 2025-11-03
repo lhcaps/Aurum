@@ -1,6 +1,6 @@
 // scripts/geocode-stores.js
 require('dotenv').config();
-const { sql, poolPromise } = require('../config/db'); // dùng chung config DB
+const { sql, getPool } = require('../config/db'); // dùng chung config DB
 const USE_GOOGLE = !!process.env.GOOGLE_MAPS_KEY; // không bật -> dùng OSM
 const DEBUG = process.env.DEBUG === '1' || process.env.DEBUG === 'true';
 const DEFAULT_CITY = process.env.DEFAULT_CITY || 'Ho Chi Minh City';
@@ -152,7 +152,7 @@ async function geocode(addrRaw, nameHint = '') {
 (async () => {
   let pool;
   try {
-    pool = await poolPromise;
+    pool = await getPool();
     if (DEBUG) console.log('✅ SQL connected');
 
     const batchSize = parseInt(process.env.GEOCODE_BATCH || '50', 10);
