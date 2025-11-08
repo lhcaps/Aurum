@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Phúc Long Brand Colors - Premium Green & Brown Theme */
+    --background: 42 25% 97%;
+    --foreground: 30 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 30 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 25% 12%;
+
+    /* Primary: Phúc Long Green */
+    --primary: 142 45% 35%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 142 45% 45%;
+
+    /* Secondary: Coffee Brown */
+    --secondary: 25 35% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Accent: Golden Brown */
+    --accent: 38 65% 55%;
+    --accent-foreground: 30 25% 12%;
+
+    --muted: 42 20% 92%;
+    --muted-foreground: 30 15% 45%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 42 20% 88%;
+    --input: 42 20% 88%;
+    --ring: 142 45% 35%;
+
+    --radius: 0.75rem;
+
+    /* Custom Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(142 45% 35%), hsl(142 45% 45%));
+    --gradient-gold: linear-gradient(135deg, hsl(38 65% 55%), hsl(45 75% 65%));
+    --gradient-coffee: linear-gradient(135deg, hsl(25 35% 45%), hsl(30 40% 35%));
+
+    /* Shadows */
+    --shadow-elegant: 0 4px 20px -4px hsl(142 45% 35% / 0.15);
+    --shadow-soft: 0 2px 10px -2px hsl(30 25% 12% / 0.08);
+
+    /* Sidebar */
+    --sidebar-background: 30 20% 15%;
+    --sidebar-foreground: 42 20% 85%;
+    --sidebar-primary: 142 45% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 25% 22%;
+    --sidebar-accent-foreground: 42 20% 90%;
+    --sidebar-border: 30 15% 25%;
+    --sidebar-ring: 142 45% 45%;
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 30 20% 8%;
+    --foreground: 42 20% 92%;
+
+    --card: 30 20% 12%;
+    --card-foreground: 42 20% 92%;
+
+    --popover: 30 20% 12%;
+    --popover-foreground: 42 20% 92%;
+
+    --primary: 142 45% 45%;
+    --primary-foreground: 30 20% 8%;
+
+    --secondary: 25 35% 35%;
+    --secondary-foreground: 42 20% 92%;
+
+    --accent: 38 65% 45%;
+    --accent-foreground: 42 20% 92%;
+
+    --muted: 30 15% 18%;
+    --muted-foreground: 42 15% 60%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 42 20% 92%;
+
+    --border: 30 15% 20%;
+    --input: 30 15% 20%;
+    --ring: 142 45% 45%;
+
+    --sidebar-background: 30 20% 10%;
+    --sidebar-foreground: 42 20% 85%;
+    --sidebar-primary: 142 45% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 25% 18%;
+    --sidebar-accent-foreground: 42 20% 90%;
+    --sidebar-border: 30 15% 15%;
+    --sidebar-ring: 142 45% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
