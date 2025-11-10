@@ -1,26 +1,86 @@
-const { sql, poolPromise } = require("../../config/db");
+// ======================================================
+// 📦 AdminInventoryService.js
+// ------------------------------------------------------
+// ✅ Quản lý nguyên liệu trong bảng Inventories
+// ======================================================
+
+const { sql, getPool } = require("../../config/db");
 
 class AdminInventoryService {
-  // ✅ Cập nhật số lượng tồn kho
-  static async updateStock(productId, stock) {
+  // ======================================================
+  // 🟢 Thêm nguyên liệu mới vào kho
+  // ======================================================
+  static async addItem(data) {
     const pool = await getPool();
+
     await pool.request()
-      .input("Id", sql.Int, productId)
-      .input("Stock", sql.Int, stock)
-      .query("UPDATE Products SET Stock = @Stock WHERE Id = @Id");
-    return { message: `✅ Đã cập nhật tồn kho sản phẩm #${productId} = ${stock}` };
+      .input("Name", sql.NVarChar(255), data.name)
+      .input("Category", sql.NVarChar(100), data.category)
+      .input("Quantity", sql.Decimal(10, 2), data.quantity ?? 0)
+      .input("Unit", sql.NVarChar(50), data.unit)
+      .input("MinStock", sql.Decimal(10, 2), data.minStock ?? 0)
+      .input("Price", sql.Decimal(18, 2), data.price ?? 0)
+      .input("Supplier", sql.NVarChar(255), data.supplier || "Không rõ nhà cung cấp")
+      .query(`
+        INSERT INTO Inventories 
+          (Name, Category, Quantity, Unit, MinStock, Price, Supplier, LastUpdated)
+        VALUES 
+          (@Name, @Category, @Quantity, @Unit, @MinStock, @Price, @Supplier, GETDATE())
+      `);
+
+    return { ok: true, message: "✅ Đã thêm nguyên liệu mới vào Inventories" };
   }
 
-  // ✅ Lịch sử nhập/xuất kho (nếu có bảng InventoryHistory)
-  static async getHistory() {
+  // ======================================================
+  // 🟢 Lấy toàn bộ danh sách nguyên liệu
+  // ======================================================
+  static async getAll() {
     const pool = await getPool();
     const result = await pool.request().query(`
-      SELECT TOP 50 ih.*, p.Name AS ProductName
-      FROM InventoryHistory ih
-      JOIN Products p ON ih.ProductId = p.Id
-      ORDER BY ih.CreatedAt DESC
+      SELECT 
+        Id,
+        Name,
+        Category,
+        ISNULL(Quantity, 0) AS Quantity,
+        Unit,
+        ISNULL(MinStock, 0) AS MinStock,
+        ISNULL(Price, 0) AS Price,
+        ISNULL(Supplier, N'Không rõ nhà cung cấp') AS Supplier,
+        FORMAT(ISNULL(LastUpdated, GETDATE()), 'yyyy-MM-dd') AS LastUpdated
+      FROM Inventories
+      ORDER BY LastUpdated DESC
     `);
+
     return result.recordset;
+  }
+
+  // ======================================================
+  // 🟢 Cập nhật số lượng tồn kho (khi nhập hàng / xuất hàng)
+  // ======================================================
+  static async updateStock(id, quantity) {
+    const pool = await getPool();
+    await pool.request()
+      .input("Id", sql.Int, id)
+      .input("Quantity", sql.Decimal(10, 2), quantity)
+      .query(`
+        UPDATE Inventories 
+        SET Quantity = @Quantity, LastUpdated = GETDATE()
+        WHERE Id = @Id
+      `);
+
+    return { ok: true, message: `✅ Đã cập nhật tồn kho #${id}` };
+  }
+
+  // ======================================================
+  // 🟢 Xóa nguyên liệu khỏi kho
+  // ======================================================
+  static async deleteItem(id) {
+    const pool = await getPool();
+    await pool.request()
+      .input("Id", sql.Int, id)
+      .query(`DELETE FROM Inventories WHERE Id = @Id`);
+
+    return { ok: true, message: `🗑️ Đã xóa nguyên liệu #${id}` };
   }
 }
 

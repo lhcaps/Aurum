@@ -4,10 +4,28 @@ const AdminInventoryController = require("../../controllers/admin/admin.inventor
 
 const router = express.Router();
 
-// ✅ Cập nhật tồn kho sản phẩm
+// =============================
+// 📦 ROUTES QUẢN LÝ KHO NGUYÊN LIỆU
+// =============================
+
+// ✅ Lấy toàn bộ nguyên liệu / tồn kho
+// GET /api/admin/inventory
+router.get("/", authenticateJWT, authorizeAdmin, AdminInventoryController.getAll);
+
+// ✅ Thêm nguyên liệu mới
+// POST /api/admin/inventory
+router.post("/", authenticateJWT, authorizeAdmin, AdminInventoryController.addItem);
+
+// ✅ Cập nhật số lượng tồn kho
+// PUT /api/admin/inventory/:id/stock
 router.put("/:id/stock", authenticateJWT, authorizeAdmin, AdminInventoryController.updateStock);
 
-// ✅ Lấy danh sách lịch sử nhập/xuất kho (nếu có)
+// ✅ Xóa nguyên liệu
+// DELETE /api/admin/inventory/:id
+router.delete("/:id", authenticateJWT, authorizeAdmin, AdminInventoryController.deleteItem);
+
+// ✅ Lấy lịch sử nhập/xuất kho (nếu có bảng InventoryHistory)
+// GET /api/admin/inventory/history
 router.get("/history", authenticateJWT, authorizeAdmin, AdminInventoryController.getHistory);
 
 module.exports = router;

@@ -172,11 +172,19 @@ app.use(
   require("./routes/admin/admin.review.routes")
 );
 app.use(
+  "/api/admin/reviews",
+  authenticateJWT,
+  authorizeAdmin,
+  require("./routes/admin/admin.review.routes")
+);
+// ✅ Toppings management
+app.use(
   "/api/admin/transactions",
   authenticateJWT,
   authorizeAdmin,
   require("./routes/admin/admin.transaction.routes")
 );
+app.use("/api/admin/toppings", authenticateJWT, authorizeAdmin, require("./routes/admin/admin.topping.routes"));
 
 // ======================================================
 // 🧠 DEBUG ENDPOINT (Kiểm tra kết nối SQL)
