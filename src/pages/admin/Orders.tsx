@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Eye, CheckCircle2, Clock, Truck } from "lucide-react";
+import { Search, Eye, CheckCircle2, Clock, Truck, XCircle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -19,7 +19,7 @@ interface Order {
   phone: string;
   products: string;
   total: number;
-  status: "pending" | "processing" | "shipping" | "completed";
+  status: "pending" | "processing" | "shipping" | "completed" | "cancelled";
   date: string;
 }
 
@@ -28,6 +28,7 @@ const statusConfig = {
   processing: { label: "Đang xử lý", color: "bg-secondary/10 text-secondary", icon: Truck },
   shipping: { label: "Đang giao", color: "bg-primary/10 text-primary", icon: Truck },
   completed: { label: "Hoàn thành", color: "bg-primary/10 text-primary", icon: CheckCircle2 },
+  cancelled: { label: "Đã hủy", color: "bg-destructive/10 text-destructive", icon: XCircle },
 };
 
 export default function Orders() {
@@ -86,14 +87,24 @@ export default function Orders() {
         order.id === orderId ? { ...order, status: newStatus } : order
       )
     );
-    toast.success("Đã cập nhật trạng thái đơn hàng");
+    toast.success("✅ Đã cập nhật trạng thái đơn hàng");
+  };
+
+  const cancelOrder = (orderId: string) => {
+    if (!window.confirm("Bạn có chắc muốn hủy đơn hàng này không?")) return;
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === orderId ? { ...order, status: "cancelled" } : order
+      )
+    );
+    toast.error("🛑 Đơn hàng đã được hủy");
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-foreground mb-2">Quản lý đơn hàng</h2>
-        <p className="text-muted-foreground">Theo dõi và cập nhật trạng thái đơn hàng</p>
+        <p className="text-muted-foreground">Theo dõi, cập nhật và hủy đơn hàng</p>
       </div>
 
       {/* Filters */}
@@ -118,6 +129,7 @@ export default function Orders() {
               <SelectItem value="processing">Đang xử lý</SelectItem>
               <SelectItem value="shipping">Đang giao</SelectItem>
               <SelectItem value="completed">Hoàn thành</SelectItem>
+              <SelectItem value="cancelled">Đã hủy</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -129,26 +141,27 @@ export default function Orders() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Mã đơn</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Khách hàng</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Sản phẩm</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Tổng tiền</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Thời gian</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Trạng thái</th>
-                <th className="text-left py-4 px-6 text-sm font-semibold text-foreground">Hành động</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Mã đơn</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Khách hàng</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Sản phẩm</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Tổng tiền</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Thời gian</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Trạng thái</th>
+                <th className="text-left py-4 px-6 text-sm font-semibold">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {filteredOrders.map((order) => {
                 const StatusIcon = statusConfig[order.status].icon;
                 return (
-                  <tr key={order.id} className="border-b border-border hover:bg-muted/30 transition-colors">
-                    <td className="py-4 px-6 font-medium text-foreground">{order.id}</td>
+                  <tr
+                    key={order.id}
+                    className="border-b border-border hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="py-4 px-6 font-medium">{order.id}</td>
                     <td className="py-4 px-6">
-                      <div>
-                        <p className="font-medium text-foreground">{order.customer}</p>
-                        <p className="text-sm text-muted-foreground">{order.phone}</p>
-                      </div>
+                      <p className="font-medium">{order.customer}</p>
+                      <p className="text-sm text-muted-foreground">{order.phone}</p>
                     </td>
                     <td className="py-4 px-6 text-muted-foreground max-w-xs truncate">
                       {order.products}
@@ -168,6 +181,7 @@ export default function Orders() {
                         <Button variant="outline" size="sm">
                           <Eye className="w-4 h-4" />
                         </Button>
+
                         <Select
                           value={order.status}
                           onValueChange={(value) =>
@@ -182,8 +196,21 @@ export default function Orders() {
                             <SelectItem value="processing">Đang xử lý</SelectItem>
                             <SelectItem value="shipping">Đang giao</SelectItem>
                             <SelectItem value="completed">Hoàn thành</SelectItem>
+                            <SelectItem value="cancelled">Đã hủy</SelectItem>
                           </SelectContent>
                         </Select>
+
+                        {/* Nút hủy đơn */}
+                        {order.status !== "cancelled" && order.status !== "completed" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive border-destructive hover:bg-destructive/10"
+                            onClick={() => cancelOrder(order.id)}
+                          >
+                            <XCircle className="w-4 h-4 mr-1" /> Hủy
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>

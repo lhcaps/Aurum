@@ -64,9 +64,47 @@ export default function Toppings() {
     minStock: 0,
   });
 
-  // ✅ Danh mục topping (giống Inventory)
+  // ✅ Danh mục topping
   const categories = ["Trân châu", "Bánh", "Thạch", "Kem", "Sữa", "Khác", "Topping"];
   const units = ["kg", "g", "hộp", "chai", "gói",];
+  const [recipe, setRecipe] = useState([{ ingredientId: "", quantity: "", unit: "" }]);
+  const [ingredients, setIngredients] = useState<any[]>([]);
+  // 🔹 Danh mục áp dụng cho công thức (theo category của nguyên liệu trong Inventory)
+  const [selectedRecipeCategory, setSelectedRecipeCategory] = useState("");
+
+  // Danh sách danh mục nguyên liệu từ Inventory
+  const ingredientCategories = Array.from(
+    new Set((ingredients || []).map((i: any) => i.category).filter(Boolean))
+  );
+
+  // Dùng để filter nguyên liệu theo danh mục áp dụng
+  const filteredIngredients = selectedRecipeCategory
+    ? ingredients.filter((i: any) => i.category === selectedRecipeCategory)
+    : ingredients;
+  const addIngredientRow = () => setRecipe([...recipe, { ingredientId: "", quantity: "", unit: "" }]);
+  const removeIngredientRow = (i: number) => setRecipe(recipe.filter((_, idx) => idx !== i));
+  const updateIngredient = (i: number, key: string, val: any) => {
+    const updated = [...recipe];
+    updated[i][key] = val;
+    setRecipe(updated);
+  };
+
+  // ✅ Fetch nguyên liệu (inventory)
+  useEffect(() => {
+    const fetchIngredients = async () => {
+      try {
+        const token = localStorage.getItem("admin_token");
+        const res = await fetch("http://localhost:3000/api/admin/inventory", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.ok) setIngredients(data.data);
+      } catch (err) {
+        console.error("❌ Lỗi tải nguyên liệu:", err);
+      }
+    };
+    fetchIngredients();
+  }, []);
 
   // =====================
   // 🔹 Lấy danh sách topping
@@ -274,50 +312,56 @@ export default function Toppings() {
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full md:w-auto bg-green-600 hover:bg-green-700">
-                  <Plus className="mr-2 h-4 w-4" /> Thêm topping
+                <Button className="bg-primary hover:bg-primary-glow text-primary-foreground w-full md:w-auto">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Thêm topping
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+
+              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Thêm topping mới</DialogTitle>
-                  <DialogDescription>Nhập thông tin topping</DialogDescription>
+                  <DialogDescription>
+                    Nhập thông tin topping và công thức pha chế chi tiết
+                  </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4 py-4">
+                <div className="space-y-4 py-4">
+                  {/* --- Thông tin cơ bản --- */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Tên topping *</Label>
+                      <Label htmlFor="toppingName">Tên topping *</Label>
                       <Input
+                        id="toppingName"
                         value={newTopping.name}
                         onChange={(e) =>
                           setNewTopping({ ...newTopping, name: e.target.value })
                         }
-                        placeholder="VD: Trân châu đen"
+                        placeholder="VD: Trân châu đen, Thạch cà phê..."
                       />
                     </div>
+
                     <div className="space-y-2">
-                      <Label>Danh mục *</Label>
-                      <Select
+                      <Label htmlFor="toppingCategory">Danh mục topping *</Label>
+                      <select
+                        id="toppingCategory"
                         value={newTopping.category}
-                        onValueChange={(value) =>
-                          setNewTopping({ ...newTopping, category: value })
+                        onChange={(e) =>
+                          setNewTopping({ ...newTopping, category: e.target.value })
                         }
+                        className="w-full rounded-md border border-input bg-background p-2 text-sm"
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn danh mục" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <option value="">-- Chọn danh mục --</option>
+                        {categories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
+                  {/* --- Kho & Giá --- */}
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Số lượng</Label>
@@ -330,28 +374,27 @@ export default function Toppings() {
                             quantity: parseFloat(e.target.value),
                           })
                         }
+                        placeholder="0"
                       />
                     </div>
+
                     <div className="space-y-2">
-                      <Label>Đơn vị</Label>
-                      <Select
+                      <Label>Đơn vị *</Label>
+                      <select
                         value={newTopping.unit}
-                        onValueChange={(v) =>
-                          setNewTopping({ ...newTopping, unit: v })
+                        onChange={(e) =>
+                          setNewTopping({ ...newTopping, unit: e.target.value })
                         }
+                        className="w-full rounded-md border border-input bg-background p-2 text-sm"
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn đơn vị" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {units.map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        {units.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
                     <div className="space-y-2">
                       <Label>Tồn kho tối thiểu</Label>
                       <Input
@@ -363,6 +406,7 @@ export default function Toppings() {
                             minStock: parseFloat(e.target.value),
                           })
                         }
+                        placeholder="10"
                       />
                     </div>
                   </div>
@@ -379,8 +423,10 @@ export default function Toppings() {
                             price: parseFloat(e.target.value),
                           })
                         }
+                        placeholder="75000"
                       />
                     </div>
+
                     <div className="space-y-2">
                       <Label>Nhà cung cấp *</Label>
                       <Input
@@ -388,19 +434,115 @@ export default function Toppings() {
                         onChange={(e) =>
                           setNewTopping({ ...newTopping, supplier: e.target.value })
                         }
+                        placeholder="Tên nhà cung cấp"
                       />
                     </div>
                   </div>
-                </div>
 
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Hủy
-                  </Button>
-                  <Button onClick={handleAddTopping}>Thêm topping</Button>
-                </DialogFooter>
+                  {/* --- CÔNG THỨC PHA CHẾ --- */}
+                  <div className="space-y-4 border-t pt-4">
+                    <Label className="text-base font-semibold">Công thức pha chế</Label>
+
+                    {/* Danh mục áp dụng (filter nguyên liệu) */}
+                    <div className="space-y-2">
+                      <Label>Danh mục nguyên liệu áp dụng</Label>
+                      <select
+                        value={selectedRecipeCategory}
+                        onChange={(e) => setSelectedRecipeCategory(e.target.value)}
+                        className="w-full rounded-md border border-input bg-background p-3 text-sm"
+                      >
+                        <option value="">-- Chọn danh mục --</option>
+                        {ingredientCategories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Header bảng công thức */}
+                    <div className="grid grid-cols-4 gap-4 font-semibold text-sm text-muted-foreground px-1">
+                      <span>Nguyên liệu</span>
+                      <span>Số lượng</span>
+                      <span>Đơn vị</span>
+                      <span></span>
+                    </div>
+
+                    {/* Danh sách nguyên liệu */}
+                    {recipe.map((row, index) => (
+                      <div
+                        key={index}
+                        className="grid grid-cols-[2fr_1fr_1fr_50px] gap-4 items-center"
+                      >
+                        <select
+                          className="w-full border border-input rounded-md p-3 text-sm"
+                          value={row.ingredientId}
+                          onChange={(e) => updateIngredient(index, "ingredientId", e.target.value)}
+                        >
+                          <option value="">-- Chọn nguyên liệu --</option>
+                          {filteredIngredients.map((ing: any) => (
+                            <option key={ing.id} value={ing.id}>
+                              {ing.name} ({ing.quantity} {ing.unit})
+                            </option>
+                          ))}
+                        </select>
+
+                        <Input
+                          type="number"
+                          value={row.quantity}
+                          onChange={(e) => updateIngredient(index, "quantity", e.target.value)}
+                          placeholder="50"
+                          className="p-3 w-full"
+                        />
+
+                        <select
+                          className="w-full border border-input rounded-md p-3 text-sm"
+                          value={row.unit}
+                          onChange={(e) => updateIngredient(index, "unit", e.target.value)}
+                        >
+                          <option value="">Chọn</option>
+                          <option value="g">gram</option>
+                          <option value="ml">ml</option>
+                          <option value="kg">kg</option>
+                          <option value="lít">lít</option>
+                        </select>
+
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeIngredientRow(index)}
+                            className="hover:bg-red-50"
+                          >
+                            <Trash2 className="h-5 w-5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      className="mt-3 w-full text-sm py-3"
+                      onClick={addIngredientRow}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Thêm nguyên liệu
+                    </Button>
+                  </div>
+
+
+                  {/* --- Footer --- */}
+                  <div className="pt-4 border-t">
+                    <Button
+                      onClick={handleAddTopping}
+                      className="w-full bg-primary hover:bg-primary-glow text-primary-foreground"
+                    >
+                      Thêm topping
+                    </Button>
+                  </div>
+                </div>
               </DialogContent>
             </Dialog>
+
           </div>
 
           {/* 🔸 Bảng hiển thị */}

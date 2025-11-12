@@ -46,7 +46,8 @@ export default function Products() {
     image: "",
   });
 
-  // 💡 State cho form thêm danh mục
+  const [selectedCategory, setSelectedCategory] = useState("");
+
   const [newCategory, setNewCategory] = useState("");
 
   // 🧩 State và hàm quản lý công thức pha chế
@@ -69,6 +70,8 @@ export default function Products() {
   };
 
   const [ingredients, setIngredients] = useState<any[]>([]);
+  // ✅ Danh mục nguyên liệu áp dụng (chỉ dùng để lọc nguyên liệu trong công thức)
+  const [ingredientCategory, setIngredientCategory] = useState("");
 
   // ✅ Lấy danh sách nguyên liệu từ API Inventory
   useEffect(() => {
@@ -207,9 +210,6 @@ export default function Products() {
       toast.error("Lỗi khi kết nối server");
     }
   };
-
-  // ✅ Lấy danh sách danh mục từ BE
-  // ✅ Lấy danh mục từ backend
   const fetchCategories = async () => {
     try {
       const token = localStorage.getItem("admin_token");
@@ -232,16 +232,18 @@ export default function Products() {
       }
 
       const json = await res.json();
-      console.log("📦 Categories:", json);
+      console.log("📦 Categories API response:", json);
 
-      // ✅ Backend trả về mảng thuần, không bọc trong { data: ... }
-      setCategories(Array.isArray(json) ? json : json.data || []);
+      // ✅ Sửa ở đây
+      setCategories((json.data || []).map((c: any, i: number) => ({
+        id: c.Id || c.CategoryId || i + 1,
+        name: c.Name || c.name,
+      })));
     } catch (err) {
       console.error("❌ fetchCategories error:", err);
       toast.error("Lỗi khi tải danh mục");
     }
   };
-
 
   // Gọi cả 2 API song song khi mở trang
   useEffect(() => {
@@ -255,11 +257,13 @@ export default function Products() {
     try {
       const token = localStorage.getItem("admin_token");
       if (!token) return toast.error("Chưa đăng nhập");
-
       if (!newProduct.name || !newProduct.price) {
         toast.error("Vui lòng nhập tên và giá sản phẩm");
         return;
       }
+      // ⚙️ ép kiểu rõ ràng
+      const price = parseFloat(newProduct.price);
+      const stock = parseInt(newProduct.stock || "0");
 
       const res = await fetch("http://localhost:3000/api/admin/products", {
         method: "POST",
@@ -270,9 +274,9 @@ export default function Products() {
         body: JSON.stringify({
           Name: newProduct.name,
           Description: newProduct.description,
-          Price: parseFloat(newProduct.price),
+          Price: price,
           ImageUrl: newProduct.image || "",
-          Stock: parseInt(newProduct.stock || "0"),
+          Stock: stock,
           CategoryName: newProduct.categoryName || "Chưa phân loại",
         }),
       });
@@ -348,6 +352,10 @@ export default function Products() {
   );
 
   if (loading) return <p className="text-center mt-10 text-muted-foreground">Đang tải...</p>;
+  // 🔹 Chỉ hiển thị nguyên liệu cùng danh mục
+  const filteredIngredients = selectedCategory
+    ? ingredients.filter((ing) => ing.category === selectedCategory)
+    : ingredients;
 
   return (
     <div className="space-y-6">
@@ -438,7 +446,7 @@ export default function Products() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="category">Danh mục</Label>
+                    <Label htmlFor="category">Danh mục sản phẩm</Label>
                     <select
                       id="category"
                       value={newProduct.categoryName}
@@ -506,13 +514,17 @@ export default function Products() {
 
                   {/* Danh mục áp dụng */}
                   <div className="space-y-2">
-                    <Label>Danh mục áp dụng</Label>
+                    <Label>Danh mục nguyên liệu áp dụng</Label>
                     <select
-                      value={newProduct.categoryName}
-                      onChange={(e) => setNewProduct({ ...newProduct, categoryName: e.target.value })}
+                      value={ingredientCategory}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setIngredientCategory(val);     // ✅ lưu danh mục nguyên liệu riêng
+                        setSelectedCategory(val);       // ✅ dùng để filter nguyên liệu
+                      }}
                       className="w-full rounded-md border border-input bg-background p-3 text-sm"
                     >
-                      <option value="">-- Chọn danh mục --</option>
+                      <option value="">-- Chọn danh mục nguyên liệu --</option>
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.name}>
                           {cat.name}
@@ -520,7 +532,6 @@ export default function Products() {
                       ))}
                     </select>
                   </div>
-
                   {/* Header */}
                   <div className="grid grid-cols-4 gap-4 font-semibold text-sm text-muted-foreground px-1">
                     <span>Nguyên liệu</span>
@@ -542,11 +553,12 @@ export default function Products() {
                         onChange={(e) => updateIngredient(index, "ingredientId", e.target.value)}
                       >
                         <option value="">-- Chọn nguyên liệu --</option>
-                        {ingredients.map((ing) => (
+                        {filteredIngredients.map((ing) => (
                           <option key={ing.id} value={ing.id}>
-                            {ing.name}
+                            {ing.name} ({ing.quantity} {ing.unit})
                           </option>
                         ))}
+
                       </select>
 
                       {/* Số lượng */}

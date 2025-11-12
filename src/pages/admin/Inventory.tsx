@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Plus, Search, Edit, Trash2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FolderCog } from "lucide-react"
+import { useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -66,9 +68,14 @@ const Inventory = () => {
     price: 0,
     supplier: "",
   });
-
-  const categories = ["Nguyên liệu chính", "Topping", "Phụ gia", "Bao bì"];
-  const units = ["kg", "lít", "gói", "hộp"];
+  const [newCategory, setNewCategory] = useState("");
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const [categories, setCategories] = useState([
+    "Nguyên liệu chính",
+    "Topping",
+    "Phụ gia",
+    "Bao bì",
+  ]); const units = ["kg", "lít", "gói", "hộp"];
 
   // ========================
   // ✅ FETCH TOPPING từ backend
@@ -88,16 +95,17 @@ const Inventory = () => {
 
       // Dữ liệu từ BE
       const inventories = (data.data || []).map((i: any) => ({
-        id: i.Id,
-        name: i.Name,
-        category: i.Category,
-        quantity: Number(i.Quantity ?? 0),
-        unit: i.Unit,
-        minStock: Number(i.MinStock ?? 0),
-        price: Number(i.Price ?? 0),
-        supplier: i.Supplier,
-        lastUpdated: i.LastUpdated,
+        id: i.id ?? i.Id,
+        name: i.name ?? i.Name,
+        category: i.category ?? i.Category,
+        quantity: Number(i.quantity ?? i.Quantity ?? 0),
+        unit: i.unit ?? i.Unit ?? "",
+        minStock: Number(i.minStock ?? i.MinStock ?? 0),
+        price: Number(i.price ?? i.Price ?? 0),
+        supplier: i.supplier ?? i.Supplier ?? "",
+        lastUpdated: i.lastUpdated ?? i.LastUpdated ?? "",
       }));
+
 
       setItems(inventories);
     } catch (err) {
@@ -107,6 +115,31 @@ const Inventory = () => {
 
   useEffect(() => {
     fetchInventories();
+  }, []);
+  // ✅ Lấy danh mục từ backend khi mở trang
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem("admin_token");
+        if (!token) return;
+
+        const res = await fetch("http://localhost:3000/api/admin/categories", {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.data)) {
+          setCategories(data.data.map((c: any) => c.Name || c.name));
+        }
+      } catch (err) {
+        toast.error("Không thể tải danh mục từ server");
+      }
+    };
+
+    fetchCategories();
   }, []);
 
 
@@ -187,14 +220,19 @@ const Inventory = () => {
   // ========================
   // Lọc + thống kê
   // ========================
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      filterCategory === "all" || item.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredItems = useMemo(() => {
+    return (items || []).filter((item) => {
+      const name = (item.name || "").toLowerCase();
+      const supplier = (item.supplier || "").toLowerCase();
+      const matchesSearch =
+        name.includes(searchQuery.toLowerCase()) ||
+        supplier.includes(searchQuery.toLowerCase());
+      const matchesCategory =
+        filterCategory === "all" || item.category === filterCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, searchQuery, filterCategory]);
+
 
   const getLowStockCount = () =>
     items.filter((item) => item.quantity <= item.minStock).length;
@@ -316,26 +354,27 @@ const Inventory = () => {
                     </div>
                     <div className="space-y-2">
                       <Label>Danh mục *</Label>
-                      <Select
-                        value={newItem.category}
-                        onValueChange={(value) =>
-                          setNewItem({ ...newItem, category: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn danh mục" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select
+                          value={newItem.category}
+                          onValueChange={(value) =>
+                            setNewItem({ ...newItem, category: value })
+                          }
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Chọn danh mục" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat} value={cat}>
+                                {cat}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
-
                   {/* Hàng 2 */}
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
@@ -423,6 +462,101 @@ const Inventory = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            {/* Nút quản lý danh mục */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full md:w-auto flex items-center gap-2">
+                  <FolderCog className="w-4 h-4 text-primary" />
+                  Quản lý danh mục
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Danh mục nguyên liệu</DialogTitle>
+                  <DialogDescription>
+                    Thêm hoặc xóa các danh mục hiện có trong hệ thống
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Thêm danh mục mới */}
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    placeholder="Nhập danh mục mới..."
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                  />
+                  <Button
+                    onClick={async () => {
+                      if (!newCategory.trim()) return toast.error("Vui lòng nhập tên danh mục");
+                      try {
+                        const token = localStorage.getItem("admin_token");
+                        if (!token) return toast.error("Chưa đăng nhập");
+
+                        const res = await fetch("http://localhost:3000/api/admin/categories", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({ Name: newCategory }),
+                        });
+
+                        const data = await res.json();
+                        if (!res.ok || !data.ok) throw new Error(data.error || "Không thể thêm danh mục");
+
+                        toast.success("✅ Đã thêm danh mục mới");
+                        setCategories([...categories, newCategory]);
+                        setNewCategory("");
+                      } catch (err: any) {
+                        console.error("❌ Lỗi thêm danh mục:", err);
+                        toast.error(err.message || "Không thể thêm danh mục");
+                      }
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Thêm
+                  </Button>
+                </div>
+
+                {/* Danh sách danh mục */}
+                <div className="space-y-3 max-h-[300px] overflow-y-auto border p-3 rounded-md">
+                  {categories.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Chưa có danh mục nào</p>
+                  ) : (
+                    categories.map((cat) => (
+                      <div
+                        key={cat}
+                        className="flex justify-between items-center border-b py-1 px-2 rounded hover:bg-muted/50"
+                      >
+                        <span>{cat}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={async () => {
+                            if (!window.confirm(`Xóa "${cat}"?`)) return;
+                            try {
+                              const token = localStorage.getItem("admin_token");
+                              const res = await fetch(
+                                `http://localhost:3000/api/admin/categories/${encodeURIComponent(cat)}`,
+                                { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+                              );
+                              const data = await res.json();
+                              if (!res.ok || !data.ok) throw new Error(data.error || "Không thể xóa danh mục");
+                              setCategories(categories.filter((c) => c !== cat));
+                              toast.success(`Đã xóa "${cat}"`);
+                            } catch (err: any) {
+                              toast.error(err.message || "Lỗi khi xóa danh mục");
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
           </div>
 
           {/* Bảng hiển thị danh sách */}
@@ -450,8 +584,8 @@ const Inventory = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredItems.map((item) => (
-                    <TableRow key={`${item.id}-${item.name}`}>
+                  filteredItems.map((item, index) => (
+                    <TableRow key={`${item.id || index}-${item.name || "unknown"}`}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{item.category}</Badge>
