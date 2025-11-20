@@ -25,7 +25,7 @@ export default function Settings() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="store-name">Tên cửa hàng</Label>
-              <Input id="store-name" defaultValue="Phúc Long Coffee & Tea" />
+              <Input id="store-name" defaultValue="Aurum Coffee & Tea" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone">Số điện thoại</Label>

@@ -35,6 +35,9 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+  const [editingCategory, setEditingCategory] = useState<{ id: number; name: string } | null>(null);
+  const [isCategoryEditDialogOpen, setIsCategoryEditDialogOpen] = useState(false);
+
 
   // ✳️ State cho form thêm sản phẩm
   const [newProduct, setNewProduct] = useState({
@@ -111,6 +114,8 @@ export default function Products() {
       if (res.ok) {
         toast.success("✅ Đã thêm danh mục thành công");
         setNewCategory("");
+        setCategories((prev) => [...prev, { id: data.id || Date.now(), name: newCategory }]);
+
         fetchCategories(); // 🔄 reload danh mục
       } else {
         toast.error(data.error || "Không thể thêm danh mục");
@@ -261,10 +266,36 @@ export default function Products() {
         toast.error("Vui lòng nhập tên và giá sản phẩm");
         return;
       }
-      // ⚙️ ép kiểu rõ ràng
+
       const price = parseFloat(newProduct.price);
       const stock = parseInt(newProduct.stock || "0");
 
+      // 1️⃣ Thêm danh mục nếu chưa tồn tại
+      if (newProduct.categoryName?.trim()) {
+        const existingCategory = categories.find(
+          (c) => c.name.toLowerCase() === newProduct.categoryName!.trim().toLowerCase()
+        );
+
+        if (!existingCategory) {
+          // Thêm danh mục mới
+          const resCat = await fetch("http://localhost:3000/api/admin/categories", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ Name: newProduct.categoryName }),
+          });
+          if (!resCat.ok) {
+            const errData = await resCat.json();
+            return toast.error(errData.error || "Không thể thêm danh mục tự động");
+          }
+          toast.success(`✅ Đã tạo danh mục "${newProduct.categoryName}"`);
+          await fetchCategories(); // reload danh mục
+        }
+      }
+
+      // 2️⃣ Thêm sản phẩm
       const res = await fetch("http://localhost:3000/api/admin/products", {
         method: "POST",
         headers: {
@@ -286,27 +317,32 @@ export default function Products() {
         toast.success("✅ Đã thêm sản phẩm thành công");
         setNewProduct({
           name: "",
-          categoryName: "", // ✅ đổi từ category → categoryName
+          categoryName: "",
           price: "",
           stock: "",
           description: "",
           image: "",
         });
-
         fetchProducts();
-
       } else {
         toast.error(data.error || "Không thể thêm sản phẩm");
       }
+
     } catch (err) {
       console.error("❌ Lỗi thêm sản phẩm:", err);
       toast.error("Lỗi khi kết nối server");
     }
   };
+
   // 🧩 Mở dialog chỉnh sửa
   const openEditDialog = (product: Product) => {
     setEditingProduct(product);
     setIsEditDialogOpen(true);
+  };
+
+  const openEditCategory = (cat: { id: number; name: string }) => {
+    setEditingCategory(cat);
+    setIsCategoryEditDialogOpen(true);
   };
 
   // 🧩 Hàm cập nhật sản phẩm
@@ -357,6 +393,42 @@ export default function Products() {
     ? ingredients.filter((ing) => ing.category === selectedCategory)
     : ingredients;
 
+
+  // hàm gọi api update category
+  const handleUpdateCategory = async () => {
+    if (!editingCategory) return;
+
+    try {
+      const token = localStorage.getItem("admin_token");
+      if (!token) return toast.error("Chưa đăng nhập");
+
+      const res = await fetch(`http://localhost:3000/api/admin/categories/${editingCategory.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          Name: editingCategory.name,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Đã cập nhật danh mục");
+        setIsCategoryEditDialogOpen(false);
+        fetchCategories(); // reload danh mục
+        fetchProducts();   // reload sản phẩm để CategoryName sync
+      } else {
+        toast.error(data.error || "Không thể cập nhật danh mục");
+      }
+    } catch (err) {
+      console.error("❌ Lỗi cập nhật danh mục:", err);
+      toast.error("Lỗi khi kết nối server");
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -372,12 +444,12 @@ export default function Products() {
             <DialogTrigger asChild>
               <Button variant="outline" className="border-primary text-primary hover:bg-primary/10">
                 <Plus className="w-4 h-4 mr-2" />
-                Thêm danh mục
+                Quản lý danh mục
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Thêm danh mục mới</DialogTitle>
+                <DialogTitle>Quản lý danh mục</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -401,17 +473,29 @@ export default function Products() {
                     {categories.map((cat) => (
                       <li key={cat.id} className="flex justify-between items-center">
                         <span>{cat.name}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                        >
-                          Xóa
-                        </Button>
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditCategory(cat)}
+                          >
+                            Sửa
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                          >
+                            Xóa
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
+
                 </div>
               </div>
             </DialogContent>
@@ -772,6 +856,34 @@ export default function Products() {
 
               <Button
                 onClick={handleUpdateProduct}
+                className="w-full bg-primary hover:bg-primary-glow"
+              >
+                Lưu thay đổi
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isCategoryEditDialogOpen} onOpenChange={setIsCategoryEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa danh mục</DialogTitle>
+          </DialogHeader>
+
+          {editingCategory && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Tên danh mục</Label>
+                <Input
+                  value={editingCategory.name}
+                  onChange={(e) =>
+                    setEditingCategory({ ...editingCategory, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <Button
+                onClick={handleUpdateCategory}
                 className="w-full bg-primary hover:bg-primary-glow"
               >
                 Lưu thay đổi

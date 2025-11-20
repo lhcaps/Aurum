@@ -36,7 +36,7 @@ export const AdminLayout = () => {
             {sidebarOpen && (
               <div className="flex items-center gap-2">
                 <Coffee className="w-8 h-8 text-primary" />
-                <span className="font-bold text-lg">Phúc Long Admin</span>
+                <span className="font-bold text-lg">Aurum Admin</span>
               </div>
             )}
             <Button

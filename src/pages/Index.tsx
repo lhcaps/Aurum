@@ -10,7 +10,7 @@ const Index = () => {
           <Coffee className="w-12 h-12 text-primary" />
         </div>
         <h1 className="text-5xl font-bold text-foreground mb-4">
-          Phúc Long Admin Portal
+          Aurum Admin Portal
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Hệ thống quản lý chuyên nghiệp cho chuỗi cà phê Phúc Long
