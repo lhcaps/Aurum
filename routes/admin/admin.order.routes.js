@@ -29,8 +29,8 @@ router.get("/", async (req, res) => {
         ) AS ProductList
       FROM Orders o
       JOIN Users u ON o.UserId = u.Id
-      LEFT JOIN OrderItems oi ON o.Id = oi.OrderId
-      LEFT JOIN Products p ON oi.ProductId = p.Id
+LEFT JOIN OrderDetails oi ON o.Id = oi.OrderId
+LEFT JOIN Products p ON oi.ProductId = p.Id
       GROUP BY o.Id, o.Total, o.PaymentMethod, o.Status, o.CreatedAt, u.Name, u.Phone
       ORDER BY o.CreatedAt DESC
     `;

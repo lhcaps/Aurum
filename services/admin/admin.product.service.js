@@ -13,7 +13,7 @@ class AdminProductService {
         Description,
         Price, 
         Stock, 
-        CategoryName,   -- dùng CategoryName làm text
+        CategoryName,
         ImageUrl
       FROM Products 
       ORDER BY Id DESC
@@ -41,57 +41,11 @@ class AdminProductService {
   }
 
   // ======================================================
-  // 🧠 TÍNH SỐ LƯỢNG TỐI ĐA CÓ THỂ SẢN XUẤT TỪ KHO
-  // ======================================================
-  static async getMaxAvailableFromInventory(productId) {
-    const pool = await getPool();
-    const res = await pool
-      .request()
-      .input("ProductId", sql.Int, productId)
-      .query(`
-        SELECT 
-          pr.QuantityPerProduct, 
-          i.Quantity AS InventoryQty
-        FROM ProductRecipes pr
-        JOIN Inventories i ON pr.InventoryId = i.Id
-        WHERE pr.ProductId = @ProductId
-      `);
-
-    if (!res.recordset.length) return null; // chưa có công thức
-    let maxPossible = Infinity;
-
-    for (const row of res.recordset) {
-      const qtyPerProduct = Number(row.QuantityPerProduct || 0);
-      const inventoryQty = Number(row.InventoryQty || 0);
-      if (qtyPerProduct <= 0) continue;
-      const possible = inventoryQty / qtyPerProduct;
-      if (possible < maxPossible) maxPossible = possible;
-    }
-
-    return isFinite(maxPossible) ? Math.floor(maxPossible) : null;
-  }
-
-  // ======================================================
-  // 🛡️ KIỂM TRA KHÔNG CHO VƯỢT GIỚI HẠN TỒN
-  // ======================================================
-  static async ensureStockNotExceedInventory(productId, requestedStock) {
-    const stockValue = Number(requestedStock || 0);
-    const maxAvailable = await this.getMaxAvailableFromInventory(productId);
-    if (maxAvailable === null) return; // chưa có công thức => bỏ qua
-    if (stockValue > maxAvailable) {
-      const err = new Error(
-        `Tồn kho nguyên liệu chỉ đủ để sản xuất tối đa ${maxAvailable} sản phẩm.`
-      );
-      err.code = "STOCK_EXCEED_MAX_AVAILABLE";
-      throw err;
-    }
-  }
-
-  // ======================================================
   // ➕ Tạo sản phẩm mới
   // ======================================================
   static async create({ Name, Description, Price, Stock, CategoryName, ImageUrl }) {
     const pool = await getPool();
+
     await pool
       .request()
       .input("Name", sql.NVarChar(255), Name)
@@ -104,7 +58,8 @@ class AdminProductService {
         INSERT INTO Products (Name, Description, Price, Stock, CategoryName, ImageUrl)
         VALUES (@Name, @Description, @Price, @Stock, @CategoryName, @ImageUrl)
       `);
-    return { message: "✅ Đã thêm sản phẩm mới" };
+
+    return { message: "Đã thêm sản phẩm mới" };
   }
 
   // ======================================================
@@ -112,8 +67,6 @@ class AdminProductService {
   // ======================================================
   static async update(id, { Name, Description, Price, Stock, CategoryName, ImageUrl }) {
     const pool = await getPool();
-
-    await this.ensureStockNotExceedInventory(id, Stock);
 
     await pool
       .request()
@@ -136,7 +89,7 @@ class AdminProductService {
         WHERE Id = @Id
       `);
 
-    return { message: "✅ Cập nhật sản phẩm thành công" };
+    return { message: "Cập nhật sản phẩm thành công" };
   }
 
   // ======================================================
@@ -144,10 +97,13 @@ class AdminProductService {
   // ======================================================
   static async delete(id) {
     const pool = await getPool();
-    await pool.request().input("Id", sql.Int, id).query(`
-      DELETE FROM Products WHERE Id = @Id
-    `);
-    return { message: "🗑️ Đã xóa sản phẩm" };
+    await pool.request()
+      .input("Id", sql.Int, id)
+      .query(`
+        DELETE FROM Products WHERE Id = @Id
+      `);
+      
+    return { message: "Đã xóa sản phẩm" };
   }
 }
 

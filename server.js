@@ -194,6 +194,13 @@ app.use(
   require("./routes/admin/admin.toppingRecipe.routes")
 );
 
+// ✅ Order workflow management (Cashier & Barista)
+app.use(
+  "/api/admin/workflow",
+  authenticateJWT,
+  authorizeAdmin,
+  require("./routes/admin/order.workflow.routes")
+);
 // ======================================================
 // 🧠 DEBUG ENDPOINT (Kiểm tra kết nối SQL)
 // ======================================================
