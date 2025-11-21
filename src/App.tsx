@@ -18,6 +18,10 @@ import Vouchers from "./pages/admin/Vouchers";
 import Settings from "./pages/admin/Settings";
 import Login from "./pages/admin/Login";
 import Toppings from "./pages/admin/Toppings";
+import Customers from "./pages/admin/customers/Customers";
+
+// ⭐ THÊM IMPORT NHÂN VIÊN
+import Employees from "./pages/admin/employees/Employees";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +46,11 @@ const App = () => (
             <Route path="toppings" element={<Toppings />} />
             <Route path="orders" element={<Orders />} />
             <Route path="vouchers" element={<Vouchers />} />
+
+            {/* ⭐ ROUTE NHÂN VIÊN */}
+            <Route path="employees" element={<Employees />} />
+            {/* ⭐ ROUTE KHÁCH HÀNG */}
+            <Route path="customers" element={<Customers />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 

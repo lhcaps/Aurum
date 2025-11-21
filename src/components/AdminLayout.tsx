@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
-import { Coffee, LayoutDashboard, Package, ShoppingCart, Settings, LogOut, Menu, X, Warehouse, Ticket, IceCream, } from "lucide-react";
+import {
+  Coffee, LayoutDashboard, Package, ShoppingCart, Settings,
+  LogOut, Menu, X, Warehouse, Ticket, IceCream, Users
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const AdminLayout = () => {
@@ -19,16 +22,18 @@ export const AdminLayout = () => {
     { title: "Kho nguyên liệu", icon: Warehouse, path: "/admin/inventory" },
     { title: "Đơn hàng", icon: ShoppingCart, path: "/admin/orders" },
     { title: "Voucher", icon: Ticket, path: "/admin/vouchers" },
+    { title: "Nhân viên", icon: Users, path: "/admin/employees" },
+    { title: "Khách hàng", icon: Users, path: "/admin/customers" },
     { title: "Cài đặt", icon: Settings, path: "/admin/settings" },
   ];
+
 
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 z-50 ${
-          sidebarOpen ? "w-64" : "w-0 lg:w-20"
-        } overflow-hidden`}
+        className={`fixed lg:sticky top-0 left-0 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 z-50 ${sidebarOpen ? "w-64" : "w-0 lg:w-20"
+          } overflow-hidden`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -58,10 +63,9 @@ export const AdminLayout = () => {
                     to={item.path}
                     end={item.path === "/admin"}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                        isActive
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
+                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent"
                       }`
                     }
                   >
