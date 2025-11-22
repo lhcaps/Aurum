@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Elegant walnut brown theme */
+    --background: 35 18% 97%;
+    --foreground: 28 25% 22%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 28 25% 22%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 28 25% 22%;
+
+    /* Primary: Walnut brown */
+    --primary: 28 35% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary: Light wood */
+    --secondary: 35 20% 92%;
+    --secondary-foreground: 28 30% 28%;
+
+    /* Muted: Soft beige */
+    --muted: 35 15% 94%;
+    --muted-foreground: 28 12% 52%;
+
+    /* Accent: Warm amber */
+    --accent: 32 40% 85%;
+    --accent-foreground: 28 45% 25%;
+
+    /* Destructive */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Status colors - walnut progression */
+    --status-new: 28 35% 40%;
+    --status-new-foreground: 0 0% 100%;
+    
+    --status-brewing: 35 48% 55%;
+    --status-brewing-foreground: 35 60% 18%;
+    
+    --status-done: 125 38% 48%;
+    --status-done-foreground: 0 0% 100%;
+
+    --border: 28 22% 84%;
+    --input: 28 22% 84%;
+    --ring: 28 35% 40%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark walnut theme */
+    --background: 28 22% 11%;
+    --foreground: 35 15% 90%;
+
+    --card: 28 18% 15%;
+    --card-foreground: 35 15% 90%;
+
+    --popover: 28 18% 15%;
+    --popover-foreground: 35 15% 90%;
+
+    --primary: 28 40% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 28 15% 20%;
+    --secondary-foreground: 35 15% 90%;
+
+    --muted: 28 12% 18%;
+    --muted-foreground: 28 10% 58%;
+
+    --accent: 32 35% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Status colors - walnut progression */
+    --status-new: 28 40% 52%;
+    --status-new-foreground: 0 0% 100%;
+    
+    --status-brewing: 35 50% 58%;
+    --status-brewing-foreground: 35 65% 15%;
+    
+    --status-done: 125 40% 52%;
+    --status-done-foreground: 0 0% 100%;
+
+    --border: 28 18% 26%;
+    --input: 28 18% 26%;
+    --ring: 28 40% 52%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
