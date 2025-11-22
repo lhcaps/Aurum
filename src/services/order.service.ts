@@ -2,48 +2,45 @@ import api from "@/lib/api";
 
 export async function fetchNewOrders() {
   try {
-    console.log(">>> [ORDER SERVICE] Fetching orders...");
-
     const res = await api.get("/api/pos/orders");
 
-    console.log(">>> [ORDER SERVICE] Raw Response Data:", res.data);
+    const raw = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.data)
+      ? res.data.data
+      : [];
 
-    // CASE 1: Backend trả array trực tiếp
-    if (Array.isArray(res.data)) {
-      return res.data.map((o: any) => ({
-        id: o.Id,
-        userId: o.UserId,
-        storeId: o.StoreId,
-        total: Number(o.Total),
-        status: o.Status,
-        paymentStatus: o.PaymentStatus,
-        createdAt: o.CreatedAt,
-        items: [],
-      }));
-    }
+    return raw.map((o: any) => ({
+      id: o.Id,
+      orderNumber: o.Id,
+      time: o.CreatedAt ? new Date(o.CreatedAt) : null,
+      type: "take-away",
 
-    // CASE 2: Backend trả dạng { success, data }
-    if (Array.isArray(res.data?.data)) {
-      return res.data.data.map((o: any) => ({
-        id: o.Id,
-        userId: o.UserId,
-        storeId: o.StoreId,
-        total: Number(o.Total),
-        status: o.Status,
-        paymentStatus: o.PaymentStatus,
-        createdAt: o.CreatedAt,
-        items: [],
-      }));
-    }
+      total: Number(o.Total),
+      status: o.Status,
+      paymentStatus: o.PaymentStatus,
 
-    // Nếu BE trả format khác → sai
-    console.error(">>> INVALID ORDER RESPONSE FORMAT:", res.data);
+      createdAt: o.CreatedAt,
+
+      // FIX QUAN TRỌNG – luôn đảm bảo mảng
+      items: Array.isArray(o.Items)
+        ? o.Items.map((i: any) => ({
+            id: i.ProductId,
+            productId: i.ProductId,
+            quantity: i.Quantity,
+            price: i.Price,
+
+            name: i.ProductName,
+            image: i.ImageUrl,
+
+            size: i.Size || null,
+            toppings: i.Toppings || [],
+            notes: i.Notes || "",
+          }))
+        : [],
+    }));
+  } catch (err) {
+    console.error(">>> ORDER API ERROR:", err);
     return [];
-  } catch (err: any) {
-    console.error(
-      ">>> ORDER API ERROR:",
-      err.response?.data || err.message
-    );
-    throw err;
   }
 }

@@ -5,17 +5,23 @@ import { Clock } from "lucide-react";
 
 interface NewOrderCardProps {
   order: Order;
-  onConfirm: (orderId: string) => void;
+  onConfirm: (orderId: number) => void;
   onViewDetails: (order: Order) => void;
 }
 
 export function NewOrderCard({ order, onConfirm, onViewDetails }: NewOrderCardProps) {
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("vi-VN", {
+  const formatTime = (date?: Date | null) => {
+    if (!date) return "—";
+
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "—";
+
+    return d.toLocaleTimeString("vi-VN", {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
+
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 shadow-card hover:shadow-lg transition-all">
@@ -33,24 +39,28 @@ export function NewOrderCard({ order, onConfirm, onViewDetails }: NewOrderCardPr
       </div>
 
       <div className="flex items-center gap-2 mb-3 text-sm">
-        <span className="font-medium">{order.type === "take-away" ? "Take-away" : "Dine-in"}</span>
+        <span className="font-medium">
+          {order.type ?? "Take-away"}
+        </span>
       </div>
 
-      <div className="space-y-2 mb-4">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="text-sm">
-            <p className="font-medium">
-              {item.name} ({item.size})
-            </p>
-            {item.toppings && item.toppings.length > 0 && (
-              <p className="text-muted-foreground text-xs">- {item.toppings.join(", ")}</p>
-            )}
-            {item.notes && (
-              <p className="text-muted-foreground text-xs">Ghi chú: {item.notes}</p>
-            )}
-          </div>
-        ))}
-      </div>
+<div className="space-y-2 mb-4">
+  {order.items.length === 0 && (
+    <p className="text-xs text-muted-foreground">Không có sản phẩm</p>
+  )}
+
+  {order.items.map((item, idx) => (
+    <div key={idx} className="text-sm">
+      <p className="font-medium">
+        {item.name ?? "Không rõ sản phẩm"} x{item.quantity}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {item.price.toLocaleString("vi-VN")}₫
+      </p>
+    </div>
+  ))}
+</div>
+
 
       <div className="mb-4 pt-3 border-t border-border">
         <div className="flex justify-between items-center">

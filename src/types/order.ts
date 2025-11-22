@@ -16,7 +16,7 @@ export interface OrderItem {
 export interface Order {
   id: number;
   userId: number;
-  storeId: number;
+  storeId?: number;
 
   total: number;
   subtotal?: number;
@@ -35,8 +35,10 @@ export interface Order {
 
   productSummary?: string;
 
-  // FE fields
+  // FE generated fields
   orderNumber?: number; 
+  time?: Date | null;     
+        // ✔ THÊM DÒNG NÀY
   type?: "take-away" | "dine-in";
   cashier?: string;
 }
