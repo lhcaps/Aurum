@@ -49,7 +49,6 @@ const itemsRs = await pool.request().query(`
 
 
     const items = itemsRs.recordset;
-console.log(">>> ORDER ITEMS:", items);
 
     // 3. Gắn items vào đúng order
     const final = orders.map(o => ({
@@ -157,7 +156,8 @@ console.log(">>> ORDER ITEMS:", items);
             SELECT 
                 Id, UserId, StoreId, Total, Status, PaymentStatus, CreatedAt
             FROM Orders
-            WHERE Status IN ('waiting', 'preparing')
+           WHERE status IN ('pending', 'waiting', 'done')
+
             ORDER BY CreatedAt ASC
         `);
 

@@ -62,7 +62,7 @@ await WorkflowService.updateStatus(id, "done");
 
       return res.json({
         ok: true,
-        status: "Done"
+        status: "done"
       });
     } catch (error) {
       console.error("[done] ERROR:", error);
