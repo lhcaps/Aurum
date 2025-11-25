@@ -1,153 +1,360 @@
 // services/review.service.js
+// ============================================================
+// 🧩 ReviewService - Xử lý nghiệp vụ đánh giá sản phẩm
+// ------------------------------------------------------------
+// - upsert: User tạo / cập nhật 1 review cho 1 sản phẩm
+// - listByProduct: Lấy danh sách review theo sản phẩm
+// - delete: User xóa review của mình hoặc Admin xóa review bất kỳ
+// - listAll: Admin xem tất cả review
+// - updateByAdmin: Admin chỉnh sửa / ẩn hiện review
+// ============================================================
+
 const { sql, getPool } = require("../config/db");
 
 class ReviewService {
-  static async upsert(userId, productId, rating, comment, extra = {}) {
-    const pool = await getPool();
-    const tx = new sql.Transaction(pool);
-    await tx.begin();
+  // 🟢 1. Upsert review (create hoặc update)
+  static async upsert(
+    userId,
+    productId,
+    rating,
+    comment,
+    extra = {}
+  ) {
+    const { serviceRating, deliveryRating, driverRating, tags, images } = extra || {};
 
     try {
-      const { serviceRating, deliveryRating, driverRating, tags, images } = extra;
+      const pool = await getPool();
 
-      console.log("🧩 Bắt đầu upsert review:", { userId, productId, rating, comment, extra });
-
-      // 1️⃣ Kiểm tra sản phẩm tồn tại
-      const checkProduct = await new sql.Request(tx)
-        .input("ProductId", sql.Int, productId)
-        .query("SELECT Id FROM Products WHERE Id=@ProductId");
-
-      if (!checkProduct.recordset.length) {
-        await tx.rollback();
-        return { ok: false, error: "PRODUCT_NOT_FOUND" };
+      // 🧱 Đảm bảo rating hợp lệ
+      if (rating < 1 || rating > 5) {
+        return {
+          ok: false,
+          error: "INVALID_RATING",
+          message: "Rating phải từ 1 đến 5",
+        };
       }
 
-      // 2️⃣ Kiểm tra review cũ
-      const existing = await new sql.Request(tx)
-        .input("UserId", sql.Int, userId)
-        .input("ProductId", sql.Int, productId)
-        .query("SELECT Id FROM ProductReviews WHERE UserId=@UserId AND ProductId=@ProductId");
+      // 🧾 Kiểm tra đã có review của user cho product chưa
+      const checkReq = pool.request();
+      checkReq.input("UserId", sql.Int, userId);
+      checkReq.input("ProductId", sql.Int, productId);
 
-      // 3️⃣ Update hoặc Insert
-      if (existing.recordset.length > 0) {
-        console.log("🟨 Cập nhật review cũ...");
-        await new sql.Request(tx)
-          .input("UserId", sql.Int, userId)
-          .input("ProductId", sql.Int, productId)
-          .input("Rating", sql.Int, rating)
-          .input("ServiceRating", sql.Int, serviceRating)
-          .input("DeliveryRating", sql.Int, deliveryRating)
-          .input("DriverRating", sql.Int, driverRating)
-          .input("Tags", sql.NVarChar(sql.MAX), JSON.stringify(tags || []))
-          .input("Images", sql.NVarChar(sql.MAX), JSON.stringify(images || []))
-          .input("Comment", sql.NVarChar(sql.MAX), comment)
-          .query(`
-          UPDATE ProductReviews
-          SET Rating=@Rating,
-              ServiceRating=@ServiceRating,
-              DeliveryRating=@DeliveryRating,
-              DriverRating=@DriverRating,
-              Tags=@Tags,
-              Images=@Images,
-              Comment=@Comment,
-              UpdatedAt=SYSUTCDATETIME()
-          WHERE UserId=@UserId AND ProductId=@ProductId
-        `);
-      } else {
-        console.log("🟩 Thêm review mới...");
-        await new sql.Request(tx)
-          .input("UserId", sql.Int, userId)
-          .input("ProductId", sql.Int, productId)
-          .input("Rating", sql.Int, rating)
-          .input("ServiceRating", sql.Int, serviceRating)
-          .input("DeliveryRating", sql.Int, deliveryRating)
-          .input("DriverRating", sql.Int, driverRating)
-          .input("Tags", sql.NVarChar(sql.MAX), JSON.stringify(tags || []))
-          .input("Images", sql.NVarChar(sql.MAX), JSON.stringify(images || []))
-          .input("Comment", sql.NVarChar(sql.MAX), comment)
-          .query(`
-          INSERT INTO ProductReviews
-          (ProductId, UserId, Rating, ServiceRating, DeliveryRating, DriverRating, Tags, Images, Comment, IsVisible, CreatedAt, UpdatedAt)
-          VALUES (@ProductId, @UserId, @Rating, @ServiceRating, @DeliveryRating, @DriverRating, @Tags, @Images, @Comment, 1, SYSUTCDATETIME(), SYSUTCDATETIME())
-        `);
-      }
-
-      await tx.commit();
-      console.log("✅ Đã commit thành công review vào DB!");
-      return { ok: true, message: "Review saved successfully" };
-    } catch (err) {
-      console.error("❌ Lỗi khi upsert review:", err);
-      try { await tx.rollback(); } catch { }
-      return { ok: false, error: err.message };
-    }
-  }
-
-
-  // =============== Phần còn lại giữ nguyên =================
-  static async listByProduct(productId) {
-    const pool = await getPool();
-    const result = await pool.request()
-      .input("ProductId", sql.Int, productId)
-      .query(`
-        SELECT pr.*, u.Name AS UserName
-        FROM ProductReviews pr
-        JOIN Users u ON pr.UserId=u.Id
-        WHERE pr.ProductId=@ProductId AND (pr.IsVisible=1 OR pr.IsVisible IS NULL)
-        ORDER BY pr.CreatedAt DESC
+      const checkResult = await checkReq.query(`
+        SELECT Id
+        FROM ProductReviews
+        WHERE UserId = @UserId AND ProductId = @ProductId
       `);
-    return result.recordset;
+
+      const hasExisting = checkResult.recordset.length > 0;
+
+      if (hasExisting) {
+        // 🔁 UPDATE review
+        const existingId = checkResult.recordset[0].Id;
+
+        const updateReq = pool.request();
+        updateReq.input("Id", sql.Int, existingId);
+        updateReq.input("Rating", sql.Int, rating);
+        updateReq.input("Comment", sql.NVarChar(1000), comment || null);
+
+        const updateResult = await updateReq.query(`
+          UPDATE ProductReviews
+          SET Rating = @Rating,
+              Comment = @Comment,
+              UpdatedAt = SYSUTCDATETIME()
+          WHERE Id = @Id;
+
+          SELECT r.Id,
+                 r.ProductId,
+                 r.UserId,
+                 r.Rating,
+                 r.Comment,
+                 r.IsVisible,
+                 r.CreatedAt,
+                 r.UpdatedAt
+          FROM ProductReviews r
+          WHERE r.Id = @Id;
+        `);
+
+        const updated = updateResult.recordset[0];
+
+        // 📝 TODO: Lưu các field mở rộng (serviceRating, tags, images)
+        // Hiện tại bảng ProductReviews chưa có cột tương ứng
+        // -> Có thể lưu ở bảng phụ hoặc cột JSON trong tương lai
+        console.log("ℹ️ [ReviewService.upsert] Extra fields (ignored for now):", {
+          serviceRating,
+          deliveryRating,
+          driverRating,
+          tags,
+          images,
+        });
+
+        return {
+          ok: true,
+          message: "REVIEW_UPDATED",
+          data: updated,
+        };
+      } else {
+        // 🆕 INSERT review mới
+        const insertReq = pool.request();
+        insertReq.input("UserId", sql.Int, userId);
+        insertReq.input("ProductId", sql.Int, productId);
+        insertReq.input("Rating", sql.Int, rating);
+        insertReq.input("Comment", sql.NVarChar(1000), comment || null);
+
+        const insertResult = await insertReq.query(`
+          INSERT INTO ProductReviews (UserId, ProductId, Rating, Comment)
+          OUTPUT INSERTED.Id,
+                 INSERTED.ProductId,
+                 INSERTED.UserId,
+                 INSERTED.Rating,
+                 INSERTED.Comment,
+                 INSERTED.IsVisible,
+                 INSERTED.CreatedAt,
+                 INSERTED.UpdatedAt
+          VALUES (@UserId, @ProductId, @Rating, @Comment);
+        `);
+
+        const created = insertResult.recordset[0];
+
+        console.log("ℹ️ [ReviewService.upsert] Extra fields (ignored for now):", {
+          serviceRating,
+          deliveryRating,
+          driverRating,
+          tags,
+          images,
+        });
+
+        return {
+          ok: true,
+          message: "REVIEW_CREATED",
+          data: created,
+        };
+      }
+    } catch (err) {
+      console.error("❌ Lỗi trong ReviewService.upsert:", err);
+      return {
+        ok: false,
+        error: "UPSERT_FAILED",
+        message: err.message,
+      };
+    }
   }
 
-  static async listAll(filter = {}) {
-    const pool = await getPool();
-    let query = `
-      SELECT pr.*, u.Name AS UserName, p.Name AS ProductName
-      FROM ProductReviews pr
-      JOIN Users u ON pr.UserId=u.Id
-      JOIN Products p ON pr.ProductId=p.Id
-      WHERE 1=1
-    `;
-    const req = pool.request();
-    if (filter.isVisible != null) {
-      query += " AND pr.IsVisible=@IsVisible";
-      req.input("IsVisible", sql.Bit, filter.isVisible);
+  // 🟢 2. Lấy danh sách review của 1 sản phẩm (public)
+  static async listByProduct(productId) {
+    try {
+      const pool = await getPool();
+      const req = pool.request();
+      req.input("ProductId", sql.Int, productId);
+
+      const result = await req.query(`
+        SELECT 
+          r.Id,
+          r.ProductId,
+          r.UserId,
+          r.Rating,
+          r.Comment,
+          r.IsVisible,
+          r.CreatedAt,
+          r.UpdatedAt,
+          u.Name      AS UserName,
+          u.AvatarUrl AS UserAvatar
+        FROM ProductReviews r
+        JOIN Users u ON u.Id = r.UserId
+        WHERE r.ProductId = @ProductId
+          AND r.IsVisible = 1
+        ORDER BY r.CreatedAt DESC;
+      `);
+
+      return {
+        ok: true,
+        data: result.recordset,
+      };
+    } catch (err) {
+      console.error("❌ Lỗi trong ReviewService.listByProduct:", err);
+      return {
+        ok: false,
+        error: "LIST_FAILED",
+        message: err.message,
+      };
     }
-    query += " ORDER BY pr.CreatedAt DESC";
-    const result = await req.query(query);
-    return result.recordset;
   }
 
-  static async updateByAdmin(id, fields) {
-    const pool = await getPool();
-    const req = pool.request().input("Id", sql.Int, id);
-    const set = [];
-    if (fields.rating != null) {
-      req.input("Rating", sql.Int, fields.rating);
-      set.push("Rating=@Rating");
-    }
-    if (fields.comment != null) {
-      req.input("Comment", sql.NVarChar, fields.comment);
-      set.push("Comment=@Comment");
-    }
-    if (fields.isVisible != null) {
-      req.input("IsVisible", sql.Bit, fields.isVisible);
-      set.push("IsVisible=@IsVisible");
-    }
-    if (!set.length) return { ok: false, error: "NO_FIELDS" };
-    await req.query(`UPDATE ProductReviews SET ${set.join(", ")} WHERE Id=@Id`);
-    return { ok: true };
-  }
-
+  // 🟠 3. Xóa review
+  // - Nếu isAdmin = true -> xóa theo Id
+  // - Nếu isAdmin = false -> chỉ xóa nếu Id thuộc về userId
   static async delete(id, userId = null, isAdmin = false) {
-    const pool = await getPool();
-    const req = pool.request().input("Id", sql.Int, id);
-    let query = "DELETE FROM ProductReviews WHERE Id=@Id";
-    if (!isAdmin) {
-      req.input("UserId", sql.Int, userId);
-      query += " AND UserId=@UserId";
+    try {
+      const pool = await getPool();
+      const req = pool.request();
+      req.input("Id", sql.Int, id);
+
+      let query = "";
+
+      if (isAdmin) {
+        query = `
+          DELETE FROM ProductReviews
+          WHERE Id = @Id;
+        `;
+      } else {
+        if (!userId) {
+          return {
+            ok: false,
+            error: "UNAUTHORIZED",
+            message: "Không xác định được userId khi xóa review",
+          };
+        }
+
+        req.input("UserId", sql.Int, userId);
+        query = `
+          DELETE FROM ProductReviews
+          WHERE Id = @Id AND UserId = @UserId;
+        `;
+      }
+
+      const result = await req.query(query);
+      const rows = result.rowsAffected?.[0] || 0;
+
+      if (rows === 0) {
+        return {
+          ok: false,
+          error: "NOT_FOUND_OR_FORBIDDEN",
+          message: isAdmin
+            ? "Không tìm thấy review để xóa"
+            : "Review không tồn tại hoặc không thuộc về người dùng hiện tại",
+        };
+      }
+
+      return {
+        ok: true,
+        message: "REVIEW_DELETED",
+      };
+    } catch (err) {
+      console.error("❌ Lỗi trong ReviewService.delete:", err);
+      return {
+        ok: false,
+        error: "DELETE_FAILED",
+        message: err.message,
+      };
     }
-    const result = await req.query(query);
-    return { ok: result.rowsAffected[0] > 0 };
+  }
+
+  // 🟣 4. Admin: List tất cả review
+  static async listAll() {
+    try {
+      const pool = await getPool();
+      const req = pool.request();
+
+      const result = await req.query(`
+        SELECT 
+          r.Id,
+          r.ProductId,
+          r.UserId,
+          r.Rating,
+          r.Comment,
+          r.IsVisible,
+          r.CreatedAt,
+          r.UpdatedAt,
+          u.Name      AS UserName,
+          u.Email     AS UserEmail,
+          p.Name      AS ProductName
+        FROM ProductReviews r
+        JOIN Users u    ON u.Id = r.UserId
+        JOIN Products p ON p.Id = r.ProductId
+        ORDER BY r.CreatedAt DESC;
+      `);
+
+      return {
+        ok: true,
+        data: result.recordset,
+      };
+    } catch (err) {
+      console.error("❌ Lỗi trong ReviewService.listAll:", err);
+      return {
+        ok: false,
+        error: "LIST_ALL_FAILED",
+        message: err.message,
+      };
+    }
+  }
+
+  // 🟣 5. Admin: Update review (rating/comment/isVisible)
+  static async updateByAdmin(id, updateData = {}) {
+    try {
+      const { rating, comment, isVisible } = updateData;
+
+      const pool = await getPool();
+      const req = pool.request();
+      req.input("Id", sql.Int, id);
+
+      // Build dynamic SET
+      const setParts = [];
+      if (typeof rating === "number") {
+        req.input("Rating", sql.Int, rating);
+        setParts.push("Rating = @Rating");
+      }
+      if (typeof comment === "string") {
+        req.input("Comment", sql.NVarChar(1000), comment);
+        setParts.push("Comment = @Comment");
+      }
+      if (typeof isVisible === "boolean") {
+        req.input("IsVisible", sql.Bit, isVisible ? 1 : 0);
+        setParts.push("IsVisible = @IsVisible");
+      }
+
+      if (setParts.length === 0) {
+        return {
+          ok: false,
+          error: "NO_FIELDS_TO_UPDATE",
+          message: "Không có trường hợp lệ để cập nhật",
+        };
+      }
+
+      // Luôn cập nhật UpdatedAt
+      setParts.push("UpdatedAt = SYSUTCDATETIME()");
+
+      const query = `
+        UPDATE ProductReviews
+        SET ${setParts.join(", ")}
+        WHERE Id = @Id;
+
+        SELECT 
+          r.Id,
+          r.ProductId,
+          r.UserId,
+          r.Rating,
+          r.Comment,
+          r.IsVisible,
+          r.CreatedAt,
+          r.UpdatedAt
+        FROM ProductReviews r
+        WHERE r.Id = @Id;
+      `;
+
+      const result = await req.query(query);
+      const updated = result.recordset[0];
+
+      if (!updated) {
+        return {
+          ok: false,
+          error: "NOT_FOUND",
+          message: "Không tìm thấy review để cập nhật",
+        };
+      }
+
+      return {
+        ok: true,
+        message: "REVIEW_UPDATED_BY_ADMIN",
+        data: updated,
+      };
+    } catch (err) {
+      console.error("❌ Lỗi trong ReviewService.updateByAdmin:", err);
+      return {
+        ok: false,
+        error: "ADMIN_UPDATE_FAILED",
+        message: err.message,
+      };
+    }
   }
 }
 

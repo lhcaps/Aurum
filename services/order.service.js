@@ -50,6 +50,25 @@ class OrderService {
 
       const orderId = insertOrder.recordset[0].Id;
       console.log("🧾 Đơn hàng mới:", orderId);
+      // 🟢 Tạo ProductSummary JSON
+      const productSummary = JSON.stringify(
+        items.map((i) => ({
+          productName: i.productName || i.name,   // tùy FE gửi
+          quantity: i.quantity,
+          price: i.price
+        }))
+      );
+
+      // 🟢 Lưu vào Orders
+await new sql.Request(transaction)
+  .input("OrderId", sql.Int, orderId)
+  .input("ProductSummary", sql.NVarChar, productSummary)
+  .query(`
+    UPDATE Orders
+    SET ProductSummary = @ProductSummary
+    WHERE Id = @OrderId
+  `);
+
 
       // 2️⃣ Thêm chi tiết sản phẩm
       for (const item of items) {
@@ -128,11 +147,18 @@ class OrderService {
       .request()
       .input("UserId", sql.Int, userId)
       .query(`
-        SELECT O.Id, O.TotalAmount, O.Status, O.OrderDate, O.PaymentMethod
-        FROM Orders O
-        WHERE O.UserId = @UserId
-        ORDER BY O.OrderDate DESC
-      `);
+  SELECT 
+    O.Id,
+    O.Total        AS TotalAmount,
+    O.Status,
+    O.CreatedAt    AS OrderDate,
+    O.PaymentMethod,
+    O.ProductSummary
+  FROM Orders O
+  WHERE O.UserId = @UserId
+  ORDER BY O.CreatedAt DESC
+`);
+
     return result.recordset;
   }
 
