@@ -8,20 +8,25 @@ export function AuthProvider({ children }) {
     JSON.parse(localStorage.getItem("employee") || "null")
   );
 
-  const login = async (email: string, password: string) => {
-    const res = await api.post("/employee/auth/login", { email, password });
+const login = async (email: string, password: string) => {
+  console.log(">>> BARISTA LOGIN CALLED");
 
-    if (res.data.ok) {
-      const { accessToken, employee } = res.data;
+  const res = await api.post("/api/admin/auth/login", { email, password });
 
-      localStorage.setItem("token", accessToken);          // FIXED
-      localStorage.setItem("employee", JSON.stringify(employee)); // FIXED
+  console.log(">>> RECEIVED:", res.data);
 
-      setEmployee(employee);
-    }
+  if (res.data.ok) {
+    const { accessToken, employee } = res.data;
 
-    return res.data;
-  };
+    localStorage.setItem("employee_token", accessToken);
+    localStorage.setItem("employee_data", JSON.stringify(employee));
+
+    setEmployee(employee);
+  }
+
+  return res.data;
+};
+
 
   const logout = () => {
     localStorage.removeItem("token");
