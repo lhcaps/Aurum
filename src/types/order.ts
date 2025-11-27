@@ -1,4 +1,15 @@
-export type OrderStatus = "pending" | "waiting" | "preparing" | "done" | "canceled" | "refunded";
+export type OrderStatus =
+  "pending" |
+  "waiting" |    
+  "preparing" |   
+  "done" |
+  "completed" |
+  "brewing" |     
+  "cancelled" |
+  "refunded" |
+  "processing" |
+  "new";       
+
 export type PaymentStatus = "unpaid" | "paid" | "refunded";
 export type PaymentMethod = "cash" | "momo" | "zalopay" | "bank_transfer";
 
@@ -22,7 +33,7 @@ export interface Order {
   subtotal?: number;
   shippingFee?: number;
 
-  status: OrderStatus;
+  status: OrderStatus; // Sẽ bao gồm tất cả các status đã sửa ở trên
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
 
@@ -36,9 +47,8 @@ export interface Order {
   productSummary?: string;
 
   // FE generated fields
-  orderNumber?: number; 
-  time?: Date | null;     
-        // ✔ THÊM DÒNG NÀY
+  orderNumber?: number;
+  time?: string;
   type?: "take-away" | "dine-in";
   cashier?: string;
 }

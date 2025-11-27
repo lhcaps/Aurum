@@ -59,6 +59,7 @@ export default {
           new: "hsl(var(--status-new))",
           processing: "hsl(var(--status-processing))",
           completed: "hsl(var(--status-completed))",
+          brewing: "hsl(var(--status-brewing))",
         },
       },
       boxShadow: {

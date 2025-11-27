@@ -21,13 +21,16 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <OrderProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
 
-        <BrowserRouter>
-          <AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+
+          {/* PHẢI ĐẶT OrderProvider Ở ĐÂY */}
+          <OrderProvider>
+
             <Routes>
 
               {/* PUBLIC ROUTE */}
@@ -37,7 +40,6 @@ const App = () => (
               <Route element={<ProtectedRoute />}>
                 <Route element={<CashierLayout />}>
 
-                  {/* CHILD PAGES */}
                   <Route index element={<NewOrders />} />
                   <Route path="/" element={<NewOrders />} />
                   <Route path="direct-sales" element={<DirectSales />} />
@@ -49,16 +51,18 @@ const App = () => (
                 </Route>
               </Route>
 
-              {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AuthProvider>
-        </BrowserRouter>
 
-      </TooltipProvider>
-    </OrderProvider>
+          </OrderProvider>
+
+        </AuthProvider>
+      </BrowserRouter>
+
+    </TooltipProvider>
   </QueryClientProvider>
 );
+
 
 export default App;
 //hahaha

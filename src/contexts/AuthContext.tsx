@@ -5,12 +5,14 @@ interface AuthContextType {
   employee: any | null;
   loading: boolean;
   signOut: () => void;
+  signIn: (employee: any, token: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   employee: null,
   loading: true,
-  signOut: () => {},
+  signOut: () => { },
+  signIn: () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -21,27 +23,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const stored = localStorage.getItem("employee");
+    const storedUser = localStorage.getItem("employee");
+    const storedToken = localStorage.getItem("token");
 
-    console.log("STORED EMPLOYEE =", stored);
-
-    if (!stored) {
+    if (!storedUser || !storedToken) {
       setEmployee(null);
       setLoading(false);
       return;
     }
 
     try {
-      const parsed = JSON.parse(stored);
-      setEmployee(parsed);
-    } catch (e) {
-      console.log("PARSE ERROR => reset employee");
+      setEmployee(JSON.parse(storedUser));
+    } catch {
       localStorage.removeItem("employee");
-      setEmployee(null);
+      localStorage.removeItem("token");
     }
 
     setLoading(false);
   }, []);
+
+  const signIn = (employee: any, token: string) => {
+    localStorage.setItem("employee", JSON.stringify(employee));
+    localStorage.setItem("token", token);
+    setEmployee(employee);
+  };
 
   const signOut = () => {
     localStorage.removeItem("employee");
@@ -50,7 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ employee, loading, signOut }}>
+    <AuthContext.Provider value={{ employee, loading, signOut, signIn }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,10 +10,10 @@ interface NewOrderCardProps {
 }
 
 export function NewOrderCard({ order, onConfirm, onViewDetails }: NewOrderCardProps) {
-  const formatTime = (date?: Date | null) => {
-    if (!date) return "—";
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return "—";
 
-    const d = new Date(date);
+    const d = new Date(timeString);
     if (isNaN(d.getTime())) return "—";
 
     return d.toLocaleTimeString("vi-VN", {
@@ -33,7 +33,7 @@ export function NewOrderCard({ order, onConfirm, onViewDetails }: NewOrderCardPr
           <p className="text-xs text-muted-foreground mb-1">Order #{order.orderNumber}</p>
           <div className="flex items-center gap-1 text-accent text-sm">
             <Clock className="h-3 w-3" />
-            <span className="font-medium">{formatTime(order.time)}</span>
+            <span className="font-medium">{formatTime(order.time as unknown as string)}</span>
           </div>
         </div>
       </div>

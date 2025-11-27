@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 export default function History() {
   const { orders } = useOrders();
 
+  // Lọc ra các đơn hàng đã hoàn thành (đã thanh toán)
   const completedOrders = orders.filter((order) => order.status === "completed");
 
   const formatTime = (date: Date) => {
@@ -26,6 +27,10 @@ export default function History() {
     return date.toLocaleDateString("vi-VN");
   };
 
+  /**
+   * 🔑 FIX: Cần đảm bảo hàm này nhận kiểu dữ liệu string (từ OrderType.paymentMethod)
+   * và trả về nhãn Tiếng Việt tương ứng.
+   */
   const getPaymentMethodLabel = (method?: string) => {
     const labels: Record<string, string> = {
       cash: "Tiền mặt",
@@ -33,6 +38,7 @@ export default function History() {
       zalopay: "ZaloPay",
       bank_transfer: "Chuyển khoản",
     };
+    // Nếu paymentMethod bị undefined, mặc định là cash hoặc trả về N/A
     return labels[method || "cash"] || "N/A";
   };
 
@@ -64,6 +70,7 @@ export default function History() {
                 <TableCell>
                   {order.items.map((item, idx) => (
                     <div key={idx} className="text-sm">
+                      {/* 💡 Giả định item có trường name và size */}
                       {item.name} ({item.size})
                     </div>
                   ))}
@@ -76,7 +83,8 @@ export default function History() {
                   <div className="text-accent">{formatTime(order.time)}</div>
                 </TableCell>
                 <TableCell>
-                  <span className="text-sm">{getPaymentMethodLabel(order.paymentMethod)}</span>
+                  {/* ✅ FIX: Gọi hàm hiển thị nhãn phương thức thanh toán */}
+                  <span className="text-sm font-medium">{getPaymentMethodLabel(order.paymentMethod)}</span>
                 </TableCell>
                 <TableCell>
                   <Button

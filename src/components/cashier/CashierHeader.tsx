@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 
 interface CashierHeaderProps {
   onLogout: () => void;
+  cashierName: string;
 }
 
-export function CashierHeader({ onLogout }: CashierHeaderProps) {
+export function CashierHeader({ onLogout, cashierName }: CashierHeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -43,8 +44,7 @@ export function CashierHeader({ onLogout }: CashierHeaderProps) {
           <div className="h-8 w-px bg-border" />
           <div className="text-sm">
             <span className="text-muted-foreground">Cashier: </span>
-            <span className="font-medium">Nguyễn Văn A</span>
-          </div>
+            <span className="font-medium">{cashierName}</span>          </div>
         </div>
 
         <div className="flex items-center gap-4">
