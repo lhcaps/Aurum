@@ -67,7 +67,16 @@ class AdminOrderService {
 
   // ✅ Cập nhật trạng thái đơn hàng
   static async updateStatus(orderId, status) {
-    const valid = ["pending", "confirmed", "done", "completed", "cancelled"];
+    // 🛑 BỔ SUNG TRẠNG THÁI "processing" và "shipping"
+    const valid = [
+      "pending",
+      "processing", // <-- Đã thêm
+      "shipping",   // <-- Đã thêm
+      "confirmed",
+      "completed",
+      "completed",
+      "cancelled"
+    ];
     if (!valid.includes(status)) throw new Error("Trạng thái không hợp lệ");
 
     const pool = await getPool();

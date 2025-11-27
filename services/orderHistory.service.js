@@ -2,12 +2,6 @@
 const { sql, getPool } = require("../config/db");
 
 class OrderHistoryService {
-  // ==========================================================
-  // 🟢 Ghi lịch sử thay đổi trạng thái đơn hàng
-  // ----------------------------------------------------------
-  // Có thể gọi trực tiếp từ OrderService khi trạng thái đổi
-  // tx: transaction (optional)
-  // ==========================================================
   static async logChange(orderId, oldStatus, newStatus, tx = null) {
     const pool = tx ? tx : await getPool();
     const request = tx ? new sql.Request(tx) : pool.request();
@@ -20,6 +14,26 @@ class OrderHistoryService {
         INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
         VALUES (@OrderId, @OldStatus, @NewStatus, SYSUTCDATETIME())
       `);
+  }
+
+  static async getByUser(userId) {
+    const pool = await getPool();
+    const result = await pool
+      .request()
+      .input("UserId", sql.Int, userId)
+      .query(`
+        SELECT 
+          O.Id,
+          O.Total   AS TotalAmount,
+          O.Status,
+          O.CreatedAt    AS OrderDate,
+          O.PaymentMethod,
+          O.ProductSummary
+        FROM Orders O
+        WHERE O.UserId = @UserId
+        ORDER BY O.CreatedAt DESC
+      `);
+return result.recordset;
   }
 
   // ==========================================================
@@ -47,8 +61,8 @@ class OrderHistoryService {
   // 🟢 Danh sách đơn hàng (của user)
   // ==========================================================
   static async getAll() {
-  const pool = await getPool();
-  const result = await pool.request().query(`
+    const pool = await getPool();
+    const result = await pool.request().query(`
     SELECT 
       o.Id AS OrderId,
       u.Name AS UserName,
@@ -73,8 +87,8 @@ class OrderHistoryService {
       o.PaymentStatus, o.PaymentMethod, o.CreatedAt
     ORDER BY o.CreatedAt DESC
   `);
-  return result.recordset;
-}
+    return result.recordset;
+  }
 
   // ==========================================================
   // 🟢 Chi tiết 1 đơn hàng (bao gồm items & giao dịch)

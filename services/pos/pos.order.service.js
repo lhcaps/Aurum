@@ -3,61 +3,61 @@ const PosInventoryService = require("./pos.inventory.service");
 
 class PosOrderService {
 
-// =======================================
-// 1. CASHIER — LẤY LIST ORDER (pending, waiting)
-// =======================================
-static async getCashierOrders(user) {
-    const pool = await getPool();
+    // =======================================
+    // 1. CASHIER — LẤY LIST ORDER (pending, waiting, preparing, done, completed)
+    // =======================================
+    static async getCashierOrders(user) {
+        const pool = await getPool();
 
-    // 1. Lấy danh sách đơn
-    const ordersRs = await pool.request().query(`
-        SELECT 
-            o.Id,
-            o.UserId,
-            o.Total,
-            o.Status,
-            o.PaymentStatus,
-            o.CreatedAt,
-            u.Name AS CustomerName
-        FROM Orders o
-        LEFT JOIN Users u ON o.UserId = u.Id
-WHERE o.Status IN ('pending','waiting','done')
-        ORDER BY o.CreatedAt DESC
-    `);
+        // 1. Lấy danh sách đơn
+        const ordersRs = await pool.request().query(`
+            SELECT 
+                o.Id,
+                o.UserId,
+                o.Total,
+                o.Status,
+                o.PaymentStatus,
+                o.CreatedAt,
+                u.Name AS CustomerName
+            FROM Orders o
+            LEFT JOIN Users u ON o.UserId = u.Id
+            -- Lấy các trạng thái active của quy trình POS
+            WHERE o.Status IN ('pending','waiting','preparing','done') 
+            ORDER BY o.CreatedAt DESC
+        `);
 
-    const orders = ordersRs.recordset;
+        const orders = ordersRs.recordset;
 
-    if (orders.length === 0) return [];
+        if (orders.length === 0) return [];
 
-    // 2. Lấy danh sách items của tất cả order
-const itemsRs = await pool.request().query(`
-    SELECT 
-        od.OrderId,
-        od.ProductId,
-        od.Quantity,
-        od.UnitPrice AS Price,
-        od.Size,
-        od.Toppings,
-        od.Sugar,
-        od.Ice,
-        p.Name AS ProductName,
-        p.ImageUrl
-    FROM OrderDetails od
-    JOIN Products p ON od.ProductId = p.Id
-    WHERE od.OrderId IN (${orders.map(o => o.Id).join(",")})
-`);
+        // 2. Lấy danh sách items của tất cả order
+        const itemsRs = await pool.request().query(`
+            SELECT 
+                od.OrderId,
+                od.ProductId,
+                od.Quantity,
+                od.UnitPrice AS Price,
+                od.Size,
+                od.Toppings,
+                od.Sugar,
+                od.Ice,
+                p.Name AS ProductName,
+                p.ImageUrl
+            FROM OrderDetails od
+            JOIN Products p ON od.ProductId = p.Id
+            WHERE od.OrderId IN (${orders.map(o => o.Id).join(",")})
+        `);
 
+        const items = itemsRs.recordset;
 
-    const items = itemsRs.recordset;
+        // 3. Gắn items vào đúng order
+        const final = orders.map(o => ({
+            ...o,
+            Items: items.filter(i => i.OrderId === o.Id)
+        }));
 
-    // 3. Gắn items vào đúng order
-    const final = orders.map(o => ({
-        ...o,
-        Items: items.filter(i => i.OrderId === o.Id)
-    }));
-
-    return final;
-}
+        return final;
+    }
 
     // =======================================
     // 2. CASHIER — Tạo order
@@ -65,68 +65,99 @@ const itemsRs = await pool.request().query(`
     static async createOrder(payload, user) {
         const { items, voucherCode } = payload;
 
+        console.log("DEBUG: 📦 [createOrder] Payload nhận được:", JSON.stringify(payload));
+
         if (!Array.isArray(items) || items.length === 0) {
             throw new Error("Danh sách sản phẩm trống");
         }
 
         const pool = await getPool();
+        const connection = await pool.connect();
+        const transaction = new sql.Transaction(connection);
 
         // Tính tổng tiền
         let subTotal = 0;
         for (const item of items) {
-            if (!item.productId || !item.quantity || !item.price) {
-                throw new Error("Thiếu thông tin sản phẩm");
-            }
-            subTotal += Number(item.price) * Number(item.quantity);
-        }
+            const pId = parseInt(item.productId, 10);
+            const price = parseFloat(item.price);
+            const qty = parseFloat(item.quantity);
 
+            if (!pId || isNaN(qty) || isNaN(price)) {
+                throw new Error(`Dữ liệu sản phẩm không hợp lệ: ID=${item.productId}`);
+            }
+            subTotal += price * qty;
+        }
         const totalAmount = subTotal;
 
-        // Lấy chi nhánh của cashier
-        const empRs = await pool.request()
-            .input("UserId", sql.Int, user.id)
-            .query(`
-                SELECT TOP 1 StoreId
-                FROM Employees
-                WHERE UserId = @UserId
-            `);
+        try {
+            await transaction.begin();
 
-        const storeId = empRs.recordset[0]?.StoreId || null;
+            // 1. Lấy StoreId (Mặc định là 1 nếu không tìm thấy)
+            const empRs = await new sql.Request(transaction)
+                .input("UserId", sql.Int, user.id)
+                .query(`SELECT TOP 1 StoreId FROM Employees WHERE UserId = @UserId`);
 
-        // Insert Order
-        const orderResult = await pool.request()
-            .input("UserId", sql.Int, user.id)
-            .input("StoreId", sql.Int, null)
-            .input("VoucherCode", sql.NVarChar, voucherCode || null)
-            .input("Status", sql.NVarChar, "pending")
-            .input("PaymentStatus", sql.NVarChar, "unpaid")
-            .input("Total", sql.Decimal(18, 2), totalAmount)
-            .query(`
-                INSERT INTO Orders (UserId, StoreId, VoucherCode, Status, PaymentStatus, Total, CreatedAt)
-                OUTPUT INSERTED.Id
-                VALUES (@UserId, @StoreId, @VoucherCode, @Status, @PaymentStatus, @Total, GETDATE())
-            `);
+            const storeId = empRs.recordset[0]?.StoreId || 1;
 
-        const orderId = orderResult.recordset[0].Id;
-
-        // Insert Items
-        for (const item of items) {
-            await pool.request()
-                .input("OrderId", sql.Int, orderId)
-                .input("ProductId", sql.Int, item.productId)
-                .input("Quantity", sql.Int, item.quantity)
-                .input("Price", sql.Decimal(18, 2), item.price)
+            // 2. Insert Order (BỔ SUNG CÁC TRƯỜNG THIẾU)
+            const orderResult = await new sql.Request(transaction)
+                .input("UserId", sql.Int, user.id)
+                .input("StoreId", sql.Int, storeId)
+                .input("VoucherCode", sql.NVarChar, voucherCode || null)
+                .input("Status", sql.NVarChar, "pending")
+                .input("PaymentStatus", sql.NVarChar, "unpaid")
+                .input("Total", sql.Decimal(18, 2), totalAmount.toFixed(2))
+                .input("FulfillmentMethod", sql.NVarChar, "AtStore")
+                .input("ShippingFee", sql.Decimal(18, 2), 0)
+                .input("DeliveryAddress", sql.NVarChar, 'Tại quầy')
                 .query(`
-                    INSERT INTO OrderItems (OrderId, ProductId, Quantity, Price)
-                    VALUES (@OrderId, @ProductId, @Quantity, @Price)
+                    INSERT INTO Orders 
+                    (UserId, StoreId, VoucherCode, Status, PaymentStatus, Total, FulfillmentMethod, ShippingFee, DeliveryAddress, CreatedAt)
+                    OUTPUT INSERTED.Id
+                    VALUES 
+                    (@UserId, @StoreId, @VoucherCode, @Status, @PaymentStatus, @Total, @FulfillmentMethod, @ShippingFee, @DeliveryAddress, GETDATE())
                 `);
-        }
 
-        return {
-            message: "Tạo order thành công",
-            orderId,
-            totalAmount
-        };
+            const orderId = orderResult.recordset[0].Id;
+            console.log("DEBUG: ✅ [createOrder] Created Order ID:", orderId);
+
+            // 3. Insert Items
+            for (const item of items) {
+                await new sql.Request(transaction)
+                    .input("OrderId", sql.Int, orderId)
+                    .input("ProductId", sql.Int, parseInt(item.productId))
+                    .input("Quantity", sql.Int, item.quantity)
+                    .input("Price", sql.Decimal(18, 2), item.price)
+                    .query(`
+                        INSERT INTO OrderItems (OrderId, ProductId, Quantity, Price)
+                        VALUES (@OrderId, @ProductId, @Quantity, @Price)
+                    `);
+            }
+
+            // 4. Ghi lịch sử tạo đơn
+            await new sql.Request(transaction)
+                .input("OrderId", sql.Int, orderId)
+                .input("NewStatus", sql.NVarChar(50), "pending")
+                .query(`
+                    INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
+                    VALUES (@OrderId, NULL, @NewStatus, GETDATE())
+                `);
+
+            await transaction.commit();
+
+            return {
+                message: "Tạo order thành công",
+                orderId,
+                totalAmount
+            };
+
+        } catch (err) {
+            await transaction.rollback();
+            console.error("❌ [createOrder] SQL Error:", err);
+            throw new Error(`Lỗi tạo đơn hàng: ${err.message}`);
+        } finally {
+            if (connection) connection.close();
+        }
     }
 
     // =======================================
@@ -135,12 +166,13 @@ const itemsRs = await pool.request().query(`
     static async sendToBarista(orderId) {
         const pool = await getPool();
 
+        // Cập nhật Status và ghi lịch sử
         await pool.request()
             .input("OrderId", sql.Int, orderId)
             .query(`
-                UPDATE Orders 
-                SET Status = 'waiting'
-                WHERE Id = @OrderId
+                UPDATE Orders SET Status = 'waiting' WHERE Id = @OrderId;
+                INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
+                VALUES (@OrderId, 'pending', 'waiting', GETDATE());
             `);
 
         return { message: "Đã gửi order sang Barista", orderId };
@@ -151,16 +183,14 @@ const itemsRs = await pool.request().query(`
     // =======================================
     static async getBaristaQueue() {
         const pool = await getPool();
-
+        // Barista cần thấy các đơn đang chờ (waiting), đang pha (preparing)
         const rs = await pool.request().query(`
             SELECT 
                 Id, UserId, StoreId, Total, Status, PaymentStatus, CreatedAt
             FROM Orders
-           WHERE status IN ('pending', 'waiting', 'done')
-
+            WHERE Status IN ('waiting', 'preparing')
             ORDER BY CreatedAt ASC
         `);
-
         return rs.recordset;
     }
 
@@ -177,9 +207,13 @@ const itemsRs = await pool.request().query(`
             .input("OrderId", sql.Int, orderId)
             .input("Status", sql.NVarChar, status)
             .query(`
-                UPDATE Orders
-                SET Status = @Status
-                WHERE Id = @OrderId
+                DECLARE @OldStatus NVARCHAR(50);
+                SELECT @OldStatus = Status FROM Orders WHERE Id = @OrderId;
+
+                UPDATE Orders SET Status = @Status WHERE Id = @OrderId;
+
+                INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
+                VALUES (@OrderId, @OldStatus, @Status, GETDATE());
             `);
 
         return { message: "Cập nhật trạng thái thành công", orderId, status };
@@ -188,9 +222,10 @@ const itemsRs = await pool.request().query(`
     // =======================================
     // 6. CASHIER — Thanh toán
     // =======================================
-    static async payOrder(orderId, paymentMethod, amountPaid, user) {
+    static async payOrder(orderId, paymentMethod, customerPaid, user) {
         const pool = await getPool();
 
+        // 1. Kiểm tra đơn hàng
         const rs = await pool.request()
             .input("OrderId", sql.Int, orderId)
             .query(`
@@ -201,33 +236,48 @@ const itemsRs = await pool.request().query(`
 
         const order = rs.recordset[0];
         if (!order) throw new Error("Order không tồn tại");
+        if (order.PaymentStatus === "paid") throw new Error("Order đã thanh toán");
 
-        if (order.PaymentStatus === "paid") {
-            throw new Error("Order đã thanh toán");
+        // 2. Tính toán tiền
+        const total = parseFloat(order.Total);
+        const paid = parseFloat(customerPaid);
+
+        if (isNaN(total) || isNaN(paid) || total <= 0) {
+            throw new Error("Dữ liệu thanh toán không hợp lệ.");
+        }
+        if (paid < total) {
+            throw new Error("Khách đưa thiếu tiền");
         }
 
-        const total = Number(order.Total);
-        const paid = Number(amountPaid);
-
-        if (paid < total) throw new Error("Khách đưa thiếu tiền");
-
         const change = paid - total;
+        const oldStatus = order.Status;
+
+        // 3. Cập nhật DB (Thanh toán + Hoàn tất đơn hàng)
+        const paidFixed = paid.toFixed(2);
+        const changeFixed = change.toFixed(2);
 
         await pool.request()
             .input("OrderId", sql.Int, orderId)
             .input("PaymentMethod", sql.NVarChar, paymentMethod || "cash")
-            .input("AmountPaid", sql.Decimal(18, 2), paid)
-            .input("ChangeAmount", sql.Decimal(18, 2), change)
+            .input("AmountPaid", sql.Decimal(18, 2), paidFixed)
+            .input("ChangeAmount", sql.Decimal(18, 2), changeFixed)
             .input("PaymentStatus", sql.NVarChar, "paid")
+            .input("NewStatus", sql.NVarChar(50), "completed")
+            .input("OldStatus", sql.NVarChar(50), oldStatus)
             .query(`
                 UPDATE Orders
                 SET PaymentMethod = @PaymentMethod,
                     AmountPaid = @AmountPaid,
                     ChangeAmount = @ChangeAmount,
-                    PaymentStatus = 'paid'
-                WHERE Id = @OrderId
+                    PaymentStatus = @PaymentStatus,
+                    Status = @NewStatus
+                WHERE Id = @OrderId;
+
+                INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
+                VALUES (@OrderId, @OldStatus, @NewStatus, GETDATE());
             `);
 
+        // 4. Trừ kho
         await PosInventoryService.handleOrderPaid(orderId);
 
         return {

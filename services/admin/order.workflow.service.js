@@ -1,112 +1,95 @@
 const { sql, getPool } = require("../../config/db");
 
-class OrderWorkflowService {
-
+class WorkflowService {
   async updateStatus(orderId, status) {
     const pool = await getPool();
 
     await pool.request()
-      .input("Id", sql.Int, orderId)
-      .input("Status", sql.NVarChar(50), status)
+      .input("orderId", orderId)
+      .input("status", status)
       .query(`
         UPDATE Orders
-        SET Status = @Status
-        WHERE Id = @Id
+        SET Status = @status
+        WHERE Id = @orderId
       `);
 
-    await pool.request()
-      .input("OrderId", sql.Int, orderId)
-      .input("NewStatus", sql.NVarChar(50), status)
-      .query(`
-        INSERT INTO OrderHistory (OrderId, NewStatus)
-        VALUES (@OrderId, @NewStatus)
-      `);
-
-    return true;
+    return { orderId, status };
   }
 
-  // ===============================
-  // BARISTA LẤY ĐƠN
-  // ===============================
-  // ===============================
-  // BARISTA LẤY ĐƠN
-  // ===============================
-async getBaristaOrders() {
-  const pool = await getPool();
-
-  const rs = await pool.request().query(`
-      SELECT 
-        o.Id,
-        o.UserId,
-        o.Total,
-        o.Status,
-        o.PaymentStatus,
-        o.CreatedAt,
-
-        (
-          SELECT 
-            p.Name AS ProductName,
-            od.Quantity,
-            od.UnitPrice AS Price,
-            od.Size,
-            od.Toppings,
-            od.Sugar,
-            od.Ice
-          FROM OrderDetails od
-          JOIN Products p ON p.Id = od.ProductId
-          WHERE od.OrderId = o.Id
-          FOR JSON PATH
-        ) AS Items
-
-      FROM Orders o
-      WHERE o.Status IN ('waiting','preparing')
-      ORDER BY o.CreatedAt ASC
-  `);
-
-  return rs.recordset.map(o => ({
-    ...o,
-    Items: JSON.parse(o.Items || "[]")
-  }));
-}
-
-
-  // ===============================
-  // TRỪ KHO
-  // ===============================
   async autoDeductIngredients(orderId) {
     const pool = await getPool();
+    await pool.request()
+      .input("orderId", orderId)
+      .query("EXEC AutoDeductIngredients @orderId");
+  }
 
-    const items = await pool.request()
-      .input("OrderId", sql.Int, orderId)
+  async getBaristaOrders(storeId) {
+    const pool = await getPool();
+
+    const rs = await pool.request()
+      .input("storeId", storeId)
       .query(`
-        SELECT ProductId, Quantity
-        FROM OrderDetails
-        WHERE OrderId = @OrderId
+        SELECT 
+          o.Id,
+          o.OrderNumber,
+          o.Total,
+          o.Status,
+          o.CreatedAt,
+
+          od.Id AS DetailId,
+          od.Quantity,
+          od.UnitPrice,
+
+          p.Name AS ProductName,
+          -- od.SizeName AS SizeName, -- nếu trong OrderDetails có field này thì dùng
+
+          (
+            SELECT t.Name
+            FROM OrderToppings ot
+            JOIN Toppings t ON ot.ToppingId = t.Id
+            WHERE ot.OrderDetailId = od.Id
+            FOR JSON PATH
+          ) AS Toppings
+
+        FROM Orders o
+        JOIN OrderDetails od ON o.Id = od.OrderId
+        JOIN Products p ON od.ProductId = p.Id
+        -- JOIN ProductSizes s ON od.SizeId = s.Id  -- ❌ BỎ ĐI
+
+        WHERE o.Status IN ('waiting', 'preparing', 'brewing')
+          AND (@storeId IS NULL OR o.StoreId = @storeId)
+
+        ORDER BY o.CreatedAt DESC
       `);
 
-    for (const item of items.recordset) {
-      const recipe = await pool.request()
-        .input("ProductId", sql.Int, item.ProductId)
-        .query(`
-          SELECT IngredientId, Amount
-          FROM DrinkRecipes
-          WHERE ProductId = @ProductId
-        `);
+    const raw = rs.recordset;
+    const orders = {};
 
-      for (const ing of recipe.recordset) {
-        await pool.request()
-          .input("IngredientId", sql.Int, ing.IngredientId)
-          .input("Used", sql.Float, ing.Amount * item.Quantity)
-          .query(`
-            UPDATE Inventory
-            SET Stock = Stock - @Used
-            WHERE IngredientId = @IngredientId
-          `);
+    raw.forEach(r => {
+      if (!orders[r.Id]) {
+        orders[r.Id] = {
+          id: r.Id,
+          orderNumber: r.OrderNumber,
+          total: r.Total,
+          status: r.Status.toLowerCase(),
+          createdAt: r.CreatedAt,
+          items: []
+        };
       }
-    }
 
-    return true;
+      orders[r.Id].items.push({
+        name: r.ProductName,
+        size: null, // hoặc r.SizeName nếu bạn có cột này
+        quantity: r.Quantity,
+        price: r.UnitPrice,
+        toppings: r.Toppings
+          ? JSON.parse(r.Toppings).map(t => t.Name)
+          : []
+      });
+    });
+
+    return Object.values(orders);
   }
 }
 
-module.exports = new OrderWorkflowService();
+module.exports = new WorkflowService();

@@ -16,22 +16,40 @@ const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || JWT_SECRET;
 // 🧱 Middleware xác thực người dùng (authenticateJWT)
 // -------------------------------------------------------------
 function authenticateJWT(req, res, next) {
-  try {
-    const header = req.headers.authorization;
-    if (!header) return res.status(401).json({ error: "No token provided" });
+  try {
+    const header = req.headers.authorization;
+    if (!header) {
+        console.warn("❌ Auth Failed: No token provided");
+        return res.status(401).json({ error: "No token provided" });
+    }
 
-    const [type, token] = header.split(" ");
-    if (type !== "Bearer" || !token)
-      return res.status(401).json({ error: "Invalid token format" });
+    const [type, token] = header.split(" ");
+    if (type !== "Bearer" || !token) {
+        console.warn("❌ Auth Failed: Invalid token format");
+        return res.status(401).json({ error: "Invalid token format" });
+    }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    req.user = decoded;  // { id, email, role? }
+    // 🔑 FIX: Chuẩn hóa trường ID từ token (decoded.id) thành req.user.userId
+    req.user = { 
+        userId: decoded.id || decoded.userId, // Ưu tiên decoded.id (thường là JWT), fallback về decoded.userId
+        ...decoded 
+    }; 
 
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: "Unauthorized token" });
-  }
+    console.log(`✅ JWT Auth Success: User ID ${req.user.userId} authenticated.`);
+
+    next();
+  } catch (err) {
+    // 🔑 FIX: Xử lý lỗi hết hạn token (TokenExpiredError)
+    if (err.name === "TokenExpiredError") {
+        console.error("❌ Auth Failed: Token expired.");
+        return res.status(401).json({ error: "Token expired" });
+    }
+    
+    console.error("❌ Auth Failed: Invalid JWT or other error.", err.message);
+    return res.status(401).json({ error: "Unauthorized token" });
+  }
 }
 
 
@@ -39,42 +57,52 @@ function authenticateJWT(req, res, next) {
 // 🧱 Middleware xác thực token dành riêng cho admin
 // -------------------------------------------------------------
 function authenticateAdminJWT(req, res, next) {
-  try {
-    const header = req.headers.authorization;
-    if (!header) return res.status(401).json({ error: "No token provided" });
+  try {
+    const header = req.headers.authorization;
+    if (!header) return res.status(401).json({ error: "No token provided" });
 
-    const [type, token] = header.split(" ");
-    if (type !== "Bearer" || !token)
-      return res.status(401).json({ error: "Invalid token format" });
+    const [type, token] = header.split(" ");
+    if (type !== "Bearer" || !token)
+      return res.status(401).json({ error: "Invalid token format" });
 
-    const decoded = jwt.verify(token, ADMIN_JWT_SECRET);
+    const decoded = jwt.verify(token, ADMIN_JWT_SECRET);
 
-    if (!decoded?.role) return res.status(401).json({ error: "Invalid admin token" });
+    if (!decoded?.role) return res.status(401).json({ error: "Invalid admin token" });
 
-    req.user = decoded;
+    // 🔑 FIX: Chuẩn hóa trường ID
+    req.user = { 
+        userId: decoded.id || decoded.userId, 
+        ...decoded 
+    }; 
 
-    next();
-  } catch (err) {
-    if (err.name === "TokenExpiredError")
-      return res.status(401).json({ error: "Admin token expired" });
+    console.log(`✅ Admin Auth Success: User ID ${req.user.userId} authenticated.`);
 
-    return res.status(401).json({ error: "Unauthorized admin" });
-  }
+    next();
+  } catch (err) {
+    if (err.name === "TokenExpiredError")
+      return res.status(401).json({ error: "Admin token expired" });
+
+    return res.status(401).json({ error: "Unauthorized admin" });
+  }
 }
 
 // =============================================================
 // 🧱 Middleware kiểm tra quyền admin/master (authorizeAdmin)
 // -------------------------------------------------------------
 function authorizeAdmin(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  if (!req.user) {
+        console.warn("❌ Auth Failed: User object missing in req");
+        return res.status(401).json({ error: "Not authenticated" });
+    }
 
-  const role = req.user.role?.toLowerCase();
+  const role = req.user.role?.toLowerCase();
 
-  if (role !== "admin" && role !== "master") {
-    return res.status(403).json({ error: "Require admin or master role" });
-  }
-
-  next();
+  if (role !== "admin" && role !== "master") {
+    console.warn(`❌ Auth Failed: User role '${role}' denied access.`);
+    return res.status(403).json({ error: "Require admin or master role" });
+  }
+    console.log(`✅ Authorization Success: User ID ${req.user.userId} has role ${role}.`);
+  next();
 }
 
 

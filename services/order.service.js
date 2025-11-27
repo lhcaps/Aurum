@@ -1,7 +1,5 @@
 // ======================================================
-// 🧠 services/order.service.js
-// ------------------------------------------------------
-// Quản lý logic truy vấn SQL cho đơn hàng (MSSQL v11)
+// 🧠 services/order.service.js (ĐÃ CẬP NHẬT HÀM CREATE)
 // ======================================================
 const { sql, getPool } = require("../config/db");
 
@@ -10,64 +8,82 @@ class OrderService {
   // 🟢 Tạo đơn hàng mới
   // ======================================================
   async create(userId, orderData) {
-    const { items, totalAmount, paymentMethod } = orderData;
-
-    // 🔹 Lấy connection pool và tạo transaction
+    // 🔑 CẬP NHẬT: Nhận các giá trị tính toán từ FE
+    const { 
+        items, subtotal, total, shippingFee, serviceFee, 
+        discountAmount, voucherCode, paymentMethod, 
+        pickupMethod, shippingAddress, lat, lng, storeId 
+    } = orderData;
+    
+    console.log("📦 Dữ liệu sản phẩm đầu vào từ FE (Item mẫu):", items[0]);
+    
     const pool = await getPool();
-    const connection = await pool.connect(); // ✅ MSSQL v11 yêu cầu explicit connect
+    const connection = await pool.connect(); 
     const transaction = new sql.Transaction(connection);
 
     try {
       await transaction.begin();
       console.log("🚀 [OrderService.create] Transaction bắt đầu...");
 
-      // 1️⃣ Thêm đơn hàng chính
+      // 1️⃣ Thêm đơn hàng chính (SỬ DỤNG GIÁ TRỊ TỪ FE)
       const insertOrder = await new sql.Request(transaction)
         .input("UserId", sql.Int, userId)
-        .input("StoreId", sql.Int, orderData.storeId || 1)
-        .input("Subtotal", sql.Decimal(18, 2), orderData.items.reduce((sum, i) => sum + i.price * i.quantity, 0))
-        .input("ShippingFee", sql.Decimal(18, 2), orderData.shippingFee || 0)
-        .input("Total", sql.Decimal(18, 2),
-          orderData.items.reduce((sum, i) => sum + i.price * i.quantity, 0) +
-          (orderData.shippingFee || 0)
-        )
-        .input("PaymentMethod", sql.NVarChar(50), orderData.paymentMethod || "COD")
-        .input("FulfillmentMethod", sql.NVarChar(50), orderData.pickupMethod || "Delivery")
-        .input("DeliveryAddress", sql.NVarChar(255), orderData.shippingAddress || null)
-        .input("DeliveryLat", sql.Float, orderData.lat || null)
-        .input("DeliveryLng", sql.Float, orderData.lng || null)
+        .input("StoreId", sql.Int, storeId || 1)
+        // ✅ Dùng Subtotal, ShippingFee, Total đã tính ở FE
+        .input("Subtotal", sql.Decimal(18, 2), subtotal)
+        .input("ShippingFee", sql.Decimal(18, 2), shippingFee || 0)
+        .input("Total", sql.Decimal(18, 2), total)
+        // ----------------------------------------------------
+        .input("PaymentMethod", sql.NVarChar(50), paymentMethod || "COD")
+        .input("FulfillmentMethod", sql.NVarChar(50), pickupMethod || "Delivery")
+        .input("DeliveryAddress", sql.NVarChar(255), shippingAddress || null)
+        .input("DeliveryLat", sql.Float, lat || null)
+        .input("DeliveryLng", sql.Float, lng || null)
         .input("Status", sql.NVarChar(50), "Pending")
         .query(`
-    INSERT INTO Orders
-    (UserId, StoreId, Subtotal, ShippingFee, Total, PaymentMethod, FulfillmentMethod,
-     DeliveryAddress, DeliveryLat, DeliveryLng, Status)
-    OUTPUT INSERTED.Id
-    VALUES
-    (@UserId, @StoreId, @Subtotal, @ShippingFee, @Total, @PaymentMethod, @FulfillmentMethod,
-     @DeliveryAddress, @DeliveryLat, @DeliveryLng, @Status)
-  `);
+          INSERT INTO Orders
+          (UserId, StoreId, Subtotal, ShippingFee, Total, PaymentMethod, FulfillmentMethod,
+           DeliveryAddress, DeliveryLat, DeliveryLng, Status)
+          OUTPUT INSERTED.Id
+          VALUES
+          (@UserId, @StoreId, @Subtotal, @ShippingFee, @Total, @PaymentMethod, @FulfillmentMethod,
+           @DeliveryAddress, @DeliveryLat, @DeliveryLng, @Status)
+        `);
 
 
       const orderId = insertOrder.recordset[0].Id;
       console.log("🧾 Đơn hàng mới:", orderId);
-      // 🟢 Tạo ProductSummary JSON
-      const productSummary = JSON.stringify(
-        items.map((i) => ({
-          productName: i.productName || i.name,   // tùy FE gửi
-          quantity: i.quantity,
-          price: i.price
-        }))
-      );
+      
+      // 🟢 Tạo ProductSummary JSON (LƯU TRỮ CHI TIẾT CÁC KHOẢN PHÍ)
+      const summaryPayload = {
+          items: items.map((i) => ({
+             productId: i.productId,
+             productName: i.productName || i.name,
+             quantity: i.quantity,
+             price: i.price,
+             size: i.size || '',
+             toppings: i.toppings || []
+          })),
+          feesAndDiscounts: {
+              subtotal: subtotal,
+              shippingFee: shippingFee || 0,
+              serviceFee: serviceFee || 0,
+              discountAmount: discountAmount || 0,
+              voucherCode: voucherCode || null,
+              finalTotal: total
+          }
+      };
+      const productSummary = JSON.stringify(summaryPayload);
 
-      // 🟢 Lưu vào Orders
-await new sql.Request(transaction)
-  .input("OrderId", sql.Int, orderId)
-  .input("ProductSummary", sql.NVarChar, productSummary)
-  .query(`
-    UPDATE Orders
-    SET ProductSummary = @ProductSummary
-    WHERE Id = @OrderId
-  `);
+      // 🟢 Lưu ProductSummary vào Orders
+      await new sql.Request(transaction)
+        .input("OrderId", sql.Int, orderId)
+        .input("ProductSummary", sql.NVarChar, productSummary)
+        .query(`
+          UPDATE Orders
+          SET ProductSummary = @ProductSummary
+          WHERE Id = @OrderId
+        `);
 
 
       // 2️⃣ Thêm chi tiết sản phẩm
@@ -77,6 +93,7 @@ await new sql.Request(transaction)
           .input("ProductId", sql.Int, item.productId)
           .input("Quantity", sql.Int, item.quantity)
           .input("UnitPrice", sql.Decimal(18, 2), item.price)
+          // ✅ Bổ sung thêm các options khác nếu cần
           .query(`
             INSERT INTO OrderDetails (OrderId, ProductId, Quantity, UnitPrice)
             VALUES (@OrderId, @ProductId, @Quantity, @UnitPrice)
@@ -159,7 +176,35 @@ await new sql.Request(transaction)
   ORDER BY O.CreatedAt DESC
 `);
 
-    return result.recordset;
+    // ✅ FIX: Xử lý dữ liệu sau khi truy vấn để chuyển ProductSummary thành mảng items
+    return result.recordset.map(order => {
+      let itemsArray = [];
+      try {
+        // ProductSummary giờ là một object chứa items và feesAndDiscounts
+        if (order.ProductSummary && typeof order.ProductSummary === 'string' && order.ProductSummary.length > 0) {
+          const summary = JSON.parse(order.ProductSummary);
+          // Lấy mảng items từ object summary
+          if (summary.items) {
+             itemsArray = summary.items;
+          }
+        }
+      } catch (e) {
+        console.error("❌ Lỗi parse ProductSummary cho OrderId:", order.Id, e);
+      }
+
+      // Mapping các trường để khớp với giao diện FE mong đợi (OrderWithItems interface)
+      return {
+        id: order.Id,
+        total: order.TotalAmount,
+        status: order.Status,
+        date: order.OrderDate,
+        paymentMethod: order.PaymentMethod,
+        // 🔑 Trường quan trọng: Frontend cần 'items' là một mảng
+        items: itemsArray,
+        // Bỏ qua trường ProductSummary (chuỗi JSON) để giữ dữ liệu sạch
+        // ProductSummary: undefined 
+      };
+    });
   }
 
   // ======================================================

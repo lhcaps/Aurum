@@ -92,12 +92,26 @@ class PosOrderController {
     // ===============================
     static async payOrder(req, res) {
         try {
-            const { paymentMethod, amountPaid } = req.body;
+            // 🔑 FIX 1: Khai báo và ÉP KIỂU orderId LÊN ĐẦU
+            const orderId = parseInt(req.params.orderId, 10); 
+            // 2. Lấy payload
+            const { paymentMethod, customerPaid } = req.body; 
 
+            // 🔑 FIX 2: Kiểm tra orderId sau khi đã khai báo
+            if (isNaN(orderId)) { 
+                return res.status(400).json({ success: false, error: "ID đơn hàng không hợp lệ." });
+            }
+            
+            // 3. Kiểm tra payload (Đã sửa ở bước trước)
+            if (!paymentMethod || customerPaid === undefined || customerPaid === null) {
+                return res.status(400).json({ success: false, error: "Thiếu phương thức hoặc số tiền thanh toán." });
+            }
+            
+            // 4. Gọi Service
             const data = await PosOrderService.payOrder(
-                req.params.orderId,
+                orderId, 
                 paymentMethod,
-                amountPaid,
+                customerPaid, 
                 req.user
             );
 
@@ -106,6 +120,7 @@ class PosOrderController {
                 data
             });
         } catch (err) {
+            // ...
             res.status(400).json({ success: false, error: err.message });
         }
     }
