@@ -7,6 +7,7 @@ export function OrderTabs({
   brewingOrders,
   doneOrders,
   onUpdateStatus,
+  onStatusChange, // 1. FIX: THÊM prop onStatusChange
 }) {
   return (
     <div className="bg-card rounded-lg border border-border p-6">
@@ -19,19 +20,35 @@ export function OrderTabs({
         </TabsList>
 
         <TabsContent value="all">
-          <OrderBoard orders={orders} onUpdateStatus={onUpdateStatus} />
+          <OrderBoard
+            orders={orders}
+            onUpdateStatus={onUpdateStatus}
+            onStatusChange={onStatusChange} // 2. FIX: Truyền tiếp
+          />
         </TabsContent>
 
         <TabsContent value="new">
-          <OrderBoard orders={newOrders} onUpdateStatus={onUpdateStatus} />
+          <OrderBoard
+            orders={newOrders}
+            onUpdateStatus={onUpdateStatus}
+            onStatusChange={onStatusChange} // 2. FIX: Truyền tiếp
+          />
         </TabsContent>
 
         <TabsContent value="brewing">
-          <OrderBoard orders={brewingOrders} onUpdateStatus={onUpdateStatus} />
+          <OrderBoard
+            orders={brewingOrders}
+            onUpdateStatus={onUpdateStatus}
+            onStatusChange={onStatusChange} // 2. FIX: Truyền tiếp
+          />
         </TabsContent>
 
         <TabsContent value="done">
-          <OrderBoard orders={doneOrders} onUpdateStatus={onUpdateStatus} />
+          <OrderBoard
+            orders={doneOrders}
+            onUpdateStatus={onUpdateStatus}
+            onStatusChange={onStatusChange} // 2. FIX: Truyền tiếp
+          />
         </TabsContent>
       </Tabs>
     </div>

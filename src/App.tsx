@@ -7,7 +7,6 @@ import LoginPage from "@/pages/Login";
 // BARISTA PAGES
 import PhaChe from "@/pages/PhaChe";
 import DonMoi from "@/pages/DonMoi";
-import DangPha from "@/pages/DangPha";
 import HoanTat from "@/pages/HoanTat";
 import TraCuuCongThuc from "@/pages/CongThuc";
 
@@ -48,14 +47,7 @@ export default function App() {
             }
           />
 
-          <Route
-            path="/dang-pha"
-            element={
-              <ProtectedRoute>
-                <DangPha />
-              </ProtectedRoute>
-            }
-          />
+          
 
           <Route
             path="/hoan-tat"

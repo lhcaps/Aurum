@@ -2,7 +2,8 @@ import { OrderCard } from "@/components/OrderCard";
 import { useState } from "react";
 import { OrderDetailModal } from "@/components/OrderDetailModal";
 
-export function OrderBoard({ orders, onUpdateStatus }) {
+// 1. FIX: Thêm onStatusChange vào danh sách props (Signature)
+export function OrderBoard({ orders, onUpdateStatus, onStatusChange }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -13,7 +14,8 @@ export function OrderBoard({ orders, onUpdateStatus }) {
           <OrderCard
             key={order.id}
             order={order}
-            onStatusChange={onUpdateStatus}
+            // 2. FIX: Truyền hàm onStatusChange chính xác xuống OrderCard
+            onStatusChange={onStatusChange}
             onViewDetails={(o) => {
               setSelectedOrder(o);
               setIsModalOpen(true);

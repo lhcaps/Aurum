@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [employee, setEmployee] = useState(
-    JSON.parse(localStorage.getItem("employee_data") || "null")
+    JSON.parse(localStorage.getItem("employee") || "null")
   );
 
   const login = async (email: string, password: string) => {
@@ -13,16 +13,19 @@ export function AuthProvider({ children }) {
 
     if (res.data.ok) {
       const { accessToken, employee } = res.data;
-      localStorage.setItem("employee_token", accessToken);
-      localStorage.setItem("employee_data", JSON.stringify(employee));
+
+      localStorage.setItem("token", accessToken);          // FIXED
+      localStorage.setItem("employee", JSON.stringify(employee)); // FIXED
+
       setEmployee(employee);
     }
+
     return res.data;
   };
 
   const logout = () => {
-    localStorage.removeItem("employee_token");
-    localStorage.removeItem("employee_data");
+    localStorage.removeItem("token");
+    localStorage.removeItem("employee");
     setEmployee(null);
   };
 

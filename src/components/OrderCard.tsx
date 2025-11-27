@@ -86,7 +86,7 @@ export const OrderCard = ({ order, onStatusChange, onViewDetails }: OrderCardPro
             <div key={idx} className="text-sm">
               <div className="flex justify-between">
                 <span className="font-medium">
-                  Ghi chú: {item.name} ({item.size})
+                  {item.name} ({item.size}) {/* ĐÃ SỬA: Xóa chữ "Ghi chú:" thừa */}
                 </span>
                 <span className="text-muted-foreground">x{item.quantity}</span>
               </div>
@@ -135,12 +135,14 @@ export const OrderCard = ({ order, onStatusChange, onViewDetails }: OrderCardPro
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onStatusChange?.(order.id, "done");   // đổi từ "brewing" → "done"
+                  // CẬP NHẬT: Chuyển trạng thái từ "new" sang "brewing" (Đang pha chế)
+                  onStatusChange?.(order.id, "brewing");
                 }}
-                className="flex-1 bg-status-done hover:bg-status-done/90 text-status-done-foreground"
+                // CẬP NHẬT: Đổi màu sắc (Ví dụ dùng màu Brewing hoặc màu vàng/cam)
+                className="flex-1 bg-status-brewing hover:bg-status-brewing/90 text-status-brewing-foreground"
                 size="sm"
               >
-                Hoàn thành
+                Xác nhận {/* CẬP NHẬT: Đổi nhãn thành "Xác nhận" */}
               </Button>
             </>
           )}
@@ -166,7 +168,7 @@ export const OrderCard = ({ order, onStatusChange, onViewDetails }: OrderCardPro
                 className="flex-1 bg-status-done hover:bg-status-done/90 text-status-done-foreground"
                 size="sm"
               >
-                Hoàn tất
+                Xác nhận
               </Button>
             </>
           )}
