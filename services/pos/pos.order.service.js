@@ -259,18 +259,19 @@ class PosOrderService {
             .input("ChangeAmount", sql.Decimal(18, 2), change)
             .input("OldStatus", sql.NVarChar(50), order.Status)
             .query(`
-            UPDATE Orders
-            SET 
-                PaymentMethod = @PaymentMethod,
-                AmountPaid = @AmountPaid,
-                ChangeAmount = @ChangeAmount,
-                PaymentStatus = 'paid',
-                Status = 'completed'   -- ✔ QUAN TRỌNG
-            WHERE Id = @OrderId;
+UPDATE Orders
+SET 
+    PaymentMethod = @PaymentMethod,
+    AmountPaid = @AmountPaid,
+    ChangeAmount = @ChangeAmount,
+    PaymentStatus = 'paid',
+    [Status] = 'complete'
+WHERE Id = @OrderId;
 
-            INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
-            VALUES (@OrderId, @OldStatus, 'completed', GETDATE());
-        `);
+INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
+VALUES (@OrderId, @OldStatus, 'complete', GETDATE());
+`);
+
 
         // 4. Gọi inventory
         await PosInventoryService.handleOrderPaid(orderId);
