@@ -15,8 +15,6 @@ export const BaristaOrderAPI = {
       return api.patch(`/admin/workflow/${id}/send-to-barista`);
     }
     if (status === "done") {
-      // 2. FIX: Dùng endpoint chính xác để chuyển từ brewing -> done
-      // Route 4: PATCH /api/admin/workflow/:id/complete-making
       return api.patch(`/admin/workflow/${id}/complete-making`);
     }
     // Đảm bảo trả về Promise nếu trạng thái không khớp
