@@ -363,15 +363,18 @@ const Vouchers = () => {
                     <td className="p-4 font-mono font-semibold text-primary">{v.code}</td>
 
                     <td className="p-4">
-                      <Badge variant="secondary">
-                        {v.type === "percent" ? `${v.discountPercent}%` : `${v.value.toLocaleString("vi-VN")}đ`}
-                      </Badge>
+                   <Badge variant="secondary">
+  {v.type.toLowerCase() === "percent"
+    ? `${v.value}%`
+    : `${v.value.toLocaleString("vi-VN")}đ`}
+</Badge>
 
-                      {v.type === "percent" && v.maxDiscount > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Tối đa: {v.maxDiscount.toLocaleString("vi-VN")}đ
-                        </p>
-                      )}
+{v.type.toLowerCase() === "percent" && v.maxDiscount > 0 && (
+  <p className="text-xs text-muted-foreground mt-1">
+    Tối đa: {v.maxDiscount.toLocaleString("vi-VN")}đ
+  </p>
+)}
+
                     </td>
 
                     <td className="p-4">{v.minOrder.toLocaleString("vi-VN")}đ</td>
