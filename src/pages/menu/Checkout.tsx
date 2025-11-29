@@ -24,8 +24,16 @@ export default function Checkout() {
     address: "",
     note: "",
   });
-  const formatVND = (value: number) =>
-    value.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+  const formatVND = (value: any) => {
+    const number = Number(value);
+    if (!number || isNaN(number)) return "0 ₫";
+
+    return number.toLocaleString("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    });
+  };
+
 
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
@@ -47,11 +55,32 @@ export default function Checkout() {
   }, []);
 
   // 🔹 Tính tiền sau khi chọn voucher
-  const discountAmount = selectedVoucher
-    ? (subtotal * selectedVoucher.discountPercent) / 100
-    : 0;
-  const total = subtotal + serviceFee + deliveryFee - discountAmount;
+  // 🔹 Tính tiền sau khi chọn voucher
+  const discountAmount = (() => {
+    if (!selectedVoucher) return 0;
 
+    // Giảm theo %
+    if (selectedVoucher.type === "percent") {
+      const percent = selectedVoucher.discountPercent || 0;
+      const raw = (subtotal * percent) / 100;
+
+      // Nếu có maxDiscount thì chặn trần
+      const max = (selectedVoucher as any).maxDiscount ?? Infinity;
+      return Math.min(raw, max);
+    }
+
+    // Giảm cố định
+    const rawFixed = selectedVoucher.value || 0;
+
+    // Không cho giảm quá tổng tiền trước giảm
+    const beforeDiscount = subtotal + serviceFee + deliveryFee;
+    return Math.min(rawFixed, beforeDiscount);
+  })();
+
+  const total = Math.max(
+    0,
+    subtotal + serviceFee + deliveryFee - discountAmount
+  );
   // =====================================================
   // 🧾 Gửi đơn hàng tới Backend
   // =====================================================
@@ -147,20 +176,24 @@ export default function Checkout() {
     const orderPayload = {
       storeId: 1,
       paymentMethod: paymentForBE,
-      shippingAddress:
-        pickupMethod === "delivery" ? formData.address : "Nhận tại cửa hàng",
+
+      // 🔥 ĐÚNG – phải để ở root payload chứ không phải trong items
+      fulfillmentMethod: pickupMethod === "delivery" ? "Delivery" : "AtStore",
+      isOnlinePaid: paymentMethod !== "cash",
+
+      shippingAddress: pickupMethod === "delivery" ? formData.address : "Nhận tại cửa hàng",
       lat: 10.776889,
       lng: 106.700806,
-      // 🔑 CÁC TRƯỜNG MỚI ĐÃ THÊM VÀO PAYLOAD:
-      subtotal: subtotal, // Tạm tính
-      total: total, // Tổng cộng cuối cùng (đã bao gồm phí và giảm giá)
-      shippingFee: deliveryFee, // Phí giao hàng
-      serviceFee: serviceFee, // Phí dịch vụ
-      discountAmount: discountAmount, // Số tiền giảm giá
-      voucherCode: selectedVoucher?.code || null, // Mã voucher
-      // ------------------------------------------
+
+      subtotal,
+      total,
+      shippingFee: deliveryFee,
+      serviceFee,
+      discountAmount,
+      voucherCode: selectedVoucher?.code || null,
+
       items: validItems.map((it) => ({
-        productId: it.productId, // ✅ giữ nguyên number
+        productId: it.productId,
         productName: it.name,
         quantity: it.quantity,
         price: it.price,
@@ -169,6 +202,7 @@ export default function Checkout() {
         options: it.options || {},
       })),
     };
+
 
     console.log("📦 Payload gửi về backend:", orderPayload);
     // =====================================================
@@ -386,8 +420,12 @@ export default function Checkout() {
                         {v.code}
                       </span>
                       <span className="text-primary font-bold">
-                        -{v.discountPercent}%
+                        {v.type === "percent"
+                          ? `-${v.discountPercent}%`
+                          : `-${formatVND(v.value)}`
+                        }
                       </span>
+
                     </div>
                     <p className="text-sm text-muted-foreground">
                       HSD: {new Date(v.expiryDate).toLocaleDateString("vi-VN")}
@@ -399,9 +437,14 @@ export default function Checkout() {
 
             {selectedVoucher && (
               <p className="text-sm text-green-600 mt-3">
-                Đã áp dụng voucher: <b>{selectedVoucher.code}</b> (-
-                {selectedVoucher.discountPercent}%)
+                Đã áp dụng voucher: <b>{selectedVoucher.code}</b> (
+                {selectedVoucher.type === "percent"
+                  ? `-${selectedVoucher.discountPercent}%`
+                  : `-${formatVND(selectedVoucher.value)}`
+                }
+                )
               </p>
+
             )}
           </div>
 

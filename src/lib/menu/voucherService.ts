@@ -3,7 +3,9 @@ import API from "@/lib/apiClient";
 export interface Voucher {
   id: number;
   code: string;
+  type: "percent" | "fixed";
   discountPercent: number;
+  value: number;
   requiredPoints: number;
   expiryDate: string;
   isUsed?: boolean;
@@ -20,8 +22,19 @@ export const voucherService = {
       const data = res.data;
 
       // 🔍 Đảm bảo format hợp lệ
-      if (Array.isArray(data)) return data;
-      if (Array.isArray(data?.data)) return data.data;
+      return data.data.map((v: any) => ({
+        id: v.id,
+        code: v.code,
+        type: v.Type, // percent | fixed
+        discountPercent: v.DiscountPercent ?? 0,
+        value: v.discountValue ?? 0,
+        maxDiscount: v.MaxDiscount ?? 0,
+        minOrder: v.MinOrder ?? 0,
+        requiredPoints: v.RequiredPoints ?? 0,
+        expiryDate: v.expiryDate,
+        isUsed: v.IsUsed,
+      }));
+
 
       console.warn("⚠️ /vouchers/available trả về sai format:", data);
       return getMockVouchers();
@@ -40,8 +53,8 @@ export const voucherService = {
       return Array.isArray(data)
         ? data
         : Array.isArray(data?.data)
-        ? data.data
-        : [];
+          ? data.data
+          : [];
     } catch (error) {
       console.error("❌ Lỗi khi lấy vouchers của user:", error);
       return [];
@@ -102,29 +115,7 @@ function getMockVouchers(): Voucher[] {
   const future = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   return [
-    {
-      id: 1,
-      code: "WELCOME10",
-      discountPercent: 10,
-      requiredPoints: 0,
-      expiryDate: future.toISOString(),
-      isUsed: false,
-    },
-    {
-      id: 2,
-      code: "SAVE15",
-      discountPercent: 15,
-      requiredPoints: 100,
-      expiryDate: future.toISOString(),
-      isUsed: false,
-    },
-    {
-      id: 3,
-      code: "VIP20",
-      discountPercent: 20,
-      requiredPoints: 200,
-      expiryDate: future.toISOString(),
-      isUsed: false,
-    },
+
+
   ];
 }

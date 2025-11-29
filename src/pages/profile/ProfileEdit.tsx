@@ -34,7 +34,7 @@ export default function ProfileEdit() {
     let mounted = true;
     (async () => {
       try {
-        const res = await api.get(""); // middleware BE đã bảo vệ route này
+        const res = await api.get("/auth/profile");
         const u = res.data; // kỳ vọng: { Id, Name, Email, Phone, Role, ... }
 
         if (!mounted) return;
@@ -82,7 +82,7 @@ export default function ProfileEdit() {
     setIsSubmitting(true);
     try {
       // ⚠️ BE hiện chỉ nhận { Name, Phone } ở AuthService.updateProfile
-      await api.put("", {
+await api.put("/auth/profile", {
         Name: formData.fullName.trim(),
         Phone: formData.phone.trim(),
       });
