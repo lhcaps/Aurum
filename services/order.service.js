@@ -105,14 +105,17 @@ class OrderService {
         await new sql.Request(transaction)
           .input("OrderId", sql.Int, orderId)
           .input("ProductId", sql.Int, item.productId)
+          .input("ProductName", sql.NVarChar(255), item.productName || item.name || "")
           .input("Quantity", sql.Int, item.quantity)
-          .input("UnitPrice", sql.Decimal(18, 2), item.price)
-          // ✅ Bổ sung thêm các options khác nếu cần
+          .input("Price", sql.Decimal(18, 2), item.price)
+          .input("Size", sql.NVarChar(20), item.size || null)
+          .input("Topping", sql.NVarChar(255), (item.toppings?.join(",") || null))
           .query(`
-            INSERT INTO OrderDetails (OrderId, ProductId, Quantity, UnitPrice)
-            VALUES (@OrderId, @ProductId, @Quantity, @UnitPrice)
-          `);
+      INSERT INTO OrderItems (OrderId, ProductId, ProductName, Quantity, Price, Size, Topping)
+      VALUES (@OrderId, @ProductId, @ProductName, @Quantity, @Price, @Size, @Topping)
+    `);
       }
+
 
       // 3️⃣ Ghi vào lịch sử trạng thái (Pending)
       await new sql.Request(transaction)

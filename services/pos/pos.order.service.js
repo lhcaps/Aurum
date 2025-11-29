@@ -125,14 +125,21 @@ class PosOrderService {
             for (const item of items) {
                 await new sql.Request(transaction)
                     .input("OrderId", sql.Int, orderId)
-                    .input("ProductId", sql.Int, parseInt(item.productId))
+                    .input("ProductId", sql.Int, item.productId)
+                    .input("ProductName", sql.NVarChar(255), item.productName || item.name || "")
+                    .input("Size", sql.NVarChar(20), item.size || null)
+                    .input("Topping", sql.NVarChar(255), (item.toppings?.join(",") || null))
                     .input("Quantity", sql.Int, item.quantity)
                     .input("Price", sql.Decimal(18, 2), item.price)
+                    .input("Sugar", sql.NVarChar(20), item.options?.sugar || null)
+                    .input("Ice", sql.NVarChar(20), item.options?.ice || null)
                     .query(`
-                        INSERT INTO OrderItems (OrderId, ProductId, Quantity, Price)
-                        VALUES (@OrderId, @ProductId, @Quantity, @Price)
-                    `);
+      INSERT INTO OrderItems 
+      (OrderId, ProductId, ProductName, Size, Topping, Quantity, Price, Sugar, Ice)
+      VALUES (@OrderId, @ProductId, @ProductName, @Size, @Topping, @Quantity, @Price, @Sugar, @Ice)
+    `);
             }
+
 
             // 4. Ghi lịch sử tạo đơn
             await new sql.Request(transaction)

@@ -26,39 +26,40 @@ class AdminVoucherService {
 
   // ✅ Tạo mới voucher
   static async create(data) {
-const {
-  Code,
-  Type,
-  DiscountPercent,
-  Value,
-  MaxDiscount,
-  MinOrder,
-  RequiredPoints,
-  StartAt,
-  EndAt,
-  ExpiryDate,
-  IsActive = true
-} = data;
+    const {
+      Code,
+      Type,
+      DiscountPercent,
+      Value,
+      MaxDiscount,
+      MinOrder,
+      RequiredPoints,
+      StartAt,
+      EndAt,
+      ExpiryDate,
+      IsActive = true
+    } = data;
 
-// ÉP VALUE VÀ DISCOUNTPERCENT CHO AN TOÀN
-const discountPercentSafe = Type === "percent" ? DiscountPercent : 0;
-const valueSafe = Type === "fixed" ? Value : 0;
+    const discountPercentSafe = Type.toUpperCase() === "PERCENT" ? DiscountPercent : 0;
+    const valueSafe = Type.toUpperCase() === "PERCENT"
+      ? DiscountPercent
+      : Value;
 
-const pool = await getPool();
+    const pool = await getPool();
 
-await pool.request()
-  .input("Code", sql.NVarChar, Code)
-  .input("Type", sql.NVarChar, Type)
-  .input("DiscountPercent", sql.Int, discountPercentSafe)
-  .input("Value", sql.Decimal(18,2), valueSafe)
-  .input("MaxDiscount", sql.Decimal(18,2), MaxDiscount || 0)
-  .input("MinOrder", sql.Decimal(18,2), MinOrder || 0)
-  .input("RequiredPoints", sql.Int, RequiredPoints || 0)
-  .input("StartAt", sql.DateTime2, StartAt)
-  .input("EndAt", sql.DateTime2, EndAt)
-  .input("ExpiryDate", sql.DateTime2, ExpiryDate)
-  .input("IsActive", sql.Bit, IsActive ? 1 : 0) 
-  .query(`
+    await pool.request()
+      .input("Code", sql.NVarChar, Code)
+      .input("Type", sql.NVarChar, Type.toUpperCase())
+      .input("DiscountPercent", sql.Int, discountPercentSafe)
+      .input("Value", sql.Decimal(18, 2), valueSafe)
+      .input("MaxDiscount", sql.Decimal(18, 2), MaxDiscount || 0)
+      .input("MinOrder", sql.Decimal(18, 2), MinOrder || 0)
+      .input("RequiredPoints", sql.Int, RequiredPoints || 0)
+      .input("StartAt", sql.DateTime2, StartAt || null)
+      .input("EndAt", sql.DateTime2, EndAt || null)
+      .input("ExpiryDate", sql.DateTime2, ExpiryDate || StartAt || EndAt)
+      .input("IsActive", sql.Bit, IsActive ? 1 : 0)
+      .query(`
     INSERT INTO Vouchers
     (Code, Type, DiscountPercent, Value, MaxDiscount, MinOrder,
      RequiredPoints, UsedCount, IsActive, StartAt, EndAt, ExpiryDate)
@@ -78,20 +79,26 @@ await pool.request()
     const pool = await getPool();
     const request = pool.request()
       .input("Id", sql.Int, id)
-      .input("Code", sql.NVarChar, data.Code)
-      .input("Type", sql.NVarChar, data.Type)
-      .input("Value", sql.Decimal(18, 2), data.Value)
-      .input("MaxDiscount", sql.Decimal(18, 2), data.MaxDiscount || null)
-      .input("MinOrder", sql.Decimal(18, 2), data.MinOrder || null)
-      .input("UsageLimit", sql.Int, data.UsageLimit || null)
-      .input("IsActive", sql.Bit, data.IsActive ? 1 : 0)
-      .input("StartAt", sql.DateTime2, data.StartAt || null)
-      .input("EndAt", sql.DateTime2, data.EndAt || null)
+      .input("Code", sql.NVarChar, data.code)
+      .input("Type", sql.NVarChar, data.type.toUpperCase())
+      .input("Value", sql.Decimal(18, 2),
+        data.type.toUpperCase() === "PERCENT"
+          ? data.discountPercent
+          : data.value
+      )
+      .input("MaxDiscount", sql.Decimal(18, 2), data.maxDiscount || null)
+      .input("MinOrder", sql.Decimal(18, 2), data.minOrder || null)
+      .input("RequiredPoints", sql.Int, data.requiredPoints || 0)
+      .input("UsageLimit", sql.Int, data.usageLimit || null)
+      .input("IsActive", sql.Bit, data.isActive ? 1 : 0)
+      .input("StartAt", sql.DateTime2, data.startAt || null)
+      .input("EndAt", sql.DateTime2, data.endAt || null)
+      .input("ExpiryDate", sql.DateTime2, data.expiryDate || data.startAt || data.endAt)
       .query(`
         UPDATE Vouchers
         SET Code=@Code, Type=@Type, Value=@Value, MaxDiscount=@MaxDiscount,
             MinOrder=@MinOrder, UsageLimit=@UsageLimit, IsActive=@IsActive,
-            StartAt=@StartAt, EndAt=@EndAt
+            StartAt=@StartAt, EndAt=@EndAt, ExpiryDate=@ExpiryDate
         WHERE Id=@Id
       `);
 
