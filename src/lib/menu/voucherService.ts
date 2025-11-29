@@ -25,7 +25,7 @@ export const voucherService = {
       return data.data.map((v: any) => ({
         id: v.id,
         code: v.code,
-        type: v.Type, // percent | fixed
+        type: v.Type?.toString().toLowerCase() === "percent" ? "percent" : "fixed",
         discountPercent: v.DiscountPercent ?? 0,
         value: v.discountValue ?? 0,
         maxDiscount: v.MaxDiscount ?? 0,

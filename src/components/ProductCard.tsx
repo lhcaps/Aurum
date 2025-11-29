@@ -2,7 +2,7 @@ import { Star, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-// ✅ Helper format tiền VNĐ
+// Format tiền VNĐ
 const formatVND = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -18,10 +18,21 @@ interface ProductCardProps {
   rating: number;
   discount?: number;
   category?: string;
-  onAddToCart: () => void;
+
+  // FIX: Nhận item để add vào cart
+  onAddToCart: (item: {
+    productId: number;
+    name: string;
+    price: number;
+    image: string;
+    size: string;
+    toppings: string[];
+    quantity: number;
+  }) => void;
 }
 
 export const ProductCard = ({
+  id,
   name,
   price,
   image,
@@ -29,11 +40,24 @@ export const ProductCard = ({
   discount,
   onAddToCart,
 }: ProductCardProps) => {
-  // ✅ Tính giá sau giảm (nếu có)
   const finalPrice = discount ? (price * (100 - discount)) / 100 : price;
+
+  // Hàm tạo item add vào cart
+  const handleAdd = () => {
+    onAddToCart({
+      productId: Number(id),
+      name,
+      price: finalPrice,
+      image,
+      size: "M",           // mặc định
+      toppings: [],        // mặc định
+      quantity: 1,         // mặc định
+    });
+  };
 
   return (
     <div className="group relative bg-card rounded-2xl overflow-hidden shadow-soft hover:shadow-medium transition-all duration-300 hover:-translate-y-1">
+
       {/* Tag giảm giá */}
       {discount && (
         <Badge className="absolute top-3 left-3 z-10 bg-destructive text-destructive-foreground px-3 py-1">
@@ -50,48 +74,43 @@ export const ProductCard = ({
         />
       </div>
 
-      {/* Thông tin sản phẩm */}
+      {/* Thông tin */}
       <div className="p-4">
-        {/* ⭐ Rating */}
+        {/* Rating */}
         <div className="flex items-center gap-1 mb-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              className={`w-4 h-4 ${
-                i < rating
+              className={`w-4 h-4 ${i < rating
                   ? "fill-accent text-accent"
                   : "fill-muted text-muted-foreground"
-              }`}
+                }`}
             />
           ))}
         </div>
 
-        {/* Tên sản phẩm */}
+        {/* Tên */}
         <h3 className="font-semibold text-card-foreground mb-2 line-clamp-1">
           {name}
         </h3>
 
-        {/* Giá + nút thêm */}
+        {/* Giá + nút add */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {/* Giá gốc nếu có giảm */}
             {discount && (
               <span className="text-sm text-muted-foreground line-through">
                 {formatVND(price)}
               </span>
             )}
-
-            {/* Giá hiển thị (đã format VNĐ) */}
             <span className="text-lg font-bold text-primary">
               {formatVND(finalPrice)}
             </span>
           </div>
 
-          {/* Nút thêm */}
           <Button
             size="icon"
             className="rounded-xl bg-primary hover:bg-primary-dark shadow-medium"
-            onClick={onAddToCart}
+            onClick={handleAdd}
           >
             <Plus className="w-5 h-5" />
           </Button>

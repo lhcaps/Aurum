@@ -39,11 +39,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   // 📝 HÀM HỖ TRỢ: Xử lý logic thêm/hợp nhất 1 item vào state giỏ hàng
   const processNewItem = (item: Partial<CartItem>) => {
 
-    const productId = Number(item.productId || item.id);
+    const productId = Number(item.productId);
     if (!productId || isNaN(productId)) {
-      console.warn("⚠️ Không có productId hợp lệ, bỏ qua:", item);
+      console.warn("⚠️ productId không hợp lệ:", item);
       return;
     }
+
 
     const size = item.size || "M";
     const toppings = item.toppings || [];
