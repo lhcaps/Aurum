@@ -9,410 +9,311 @@ import { Switch } from "@/components/ui/switch";
 import { Ticket, Plus, Search, Edit, Trash2, TrendingUp, Users, DollarSign, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
+// IMPORT API + HOOK
+import { useVouchers } from "@/hooks/useVouchers";
+import { voucherAdminApi } from "@/services/voucher.admin.api";
+
+/*
+  CHUẨN HÓA THEO DATABASE:
+  ----------------------------------------
+  Id, Code, DiscountPercent, RequiredPoints,
+  ExpiryDate, IsUsed, Type, Value, MaxDiscount,
+  MinOrder, StartAt, EndAt, IsActive, UsedCount
+*/
+
 interface Voucher {
   id: number;
   code: string;
-  name: string;
-  discountType: "percentage" | "fixed";
-  discountValue: number;
-  minOrderValue: number;
-  maxDiscount?: number;
-  usageLimit: number;
+  type: "percent" | "fixed";
+  discountPercent: number;
+  value: number;
+  maxDiscount: number;
+  minOrder: number;
+  requiredPoints: number;
   usedCount: number;
-  validFrom: string;
-  validTo: string;
+  expiryDate: string;
+  startAt: string;
+  endAt: string;
   isActive: boolean;
 }
 
 const Vouchers = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
 
-  // Demo data
-  const [vouchers, setVouchers] = useState<Voucher[]>([
-    {
-      id: 1,
-      code: "WELCOME2024",
-      name: "Voucher chào mừng khách hàng mới",
-      discountType: "percentage",
-      discountValue: 15,
-      minOrderValue: 100000,
-      maxDiscount: 50000,
-      usageLimit: 1000,
-      usedCount: 245,
-      validFrom: "2024-01-01",
-      validTo: "2024-12-31",
-      isActive: true,
-    },
-    {
-      id: 2,
-      code: "TETNGUYENDAN",
-      name: "Voucher Tết Nguyên Đán",
-      discountType: "fixed",
-      discountValue: 50000,
-      minOrderValue: 200000,
-      usageLimit: 500,
-      usedCount: 380,
-      validFrom: "2024-01-15",
-      validTo: "2024-02-15",
-      isActive: true,
-    },
-    {
-      id: 3,
-      code: "FLASHSALE",
-      name: "Flash Sale cuối tuần",
-      discountType: "percentage",
-      discountValue: 20,
-      minOrderValue: 150000,
-      maxDiscount: 100000,
-      usageLimit: 200,
-      usedCount: 145,
-      validFrom: "2024-11-01",
-      validTo: "2024-11-30",
-      isActive: true,
-    },
-    {
-      id: 4,
-      code: "FREESHIP",
-      name: "Miễn phí giao hàng",
-      discountType: "fixed",
-      discountValue: 30000,
-      minOrderValue: 100000,
-      usageLimit: 300,
-      usedCount: 289,
-      validFrom: "2024-01-01",
-      validTo: "2024-06-30",
-      isActive: false,
-    },
-  ]);
+  // LOAD FROM BE
+  const { vouchers, loading, reload } = useVouchers();
 
+  // FORM DATA
   const [formData, setFormData] = useState({
     code: "",
-    name: "",
-    discountType: "percentage" as "percentage" | "fixed",
-    discountValue: 0,
-    minOrderValue: 0,
+    type: "percent" as "percent" | "fixed",
+    discountPercent: 0,
+    value: 0,
     maxDiscount: 0,
-    usageLimit: 0,
-    validFrom: "",
-    validTo: "",
+    minOrder: 0,
+    requiredPoints: 0,
+    startAt: "",
+    endAt: "",
+    expiryDate: "",
   });
 
-  // Stats
+  // STATS
   const stats = {
     totalVouchers: vouchers.length,
     activeVouchers: vouchers.filter((v) => v.isActive).length,
-    totalUsed: vouchers.reduce((sum, v) => sum + v.usedCount, 0),
-    totalRevenue: vouchers.reduce((sum, v) => sum + v.usedCount * 50000, 0),
+    totalUsed: vouchers.reduce((s, v) => s + v.usedCount, 0),
+    totalRevenue: vouchers.reduce((s, v) => s + v.usedCount * (v.value || v.maxDiscount), 0),
   };
 
-  const filteredVouchers = vouchers.filter(
-    (voucher) =>
-      voucher.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      voucher.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // FILTER
+  const filtered = vouchers.filter((v) =>
+    v.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleToggleActive = (id: number) => {
-    setVouchers(
-      vouchers.map((v) => (v.id === id ? { ...v, isActive: !v.isActive } : v))
-    );
-    toast.success("Đã cập nhật trạng thái voucher");
-  };
-
-  const handleDelete = (id: number) => {
-    setVouchers(vouchers.filter((v) => v.id !== id));
-    toast.success("Đã xóa voucher thành công");
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingVoucher) {
-      setVouchers(
-        vouchers.map((v) =>
-          v.id === editingVoucher.id
-            ? { ...v, ...formData, usedCount: v.usedCount }
-            : v
-        )
-      );
-      toast.success("Đã cập nhật voucher thành công");
-    } else {
-      const newVoucher: Voucher = {
-        id: Math.max(...vouchers.map((v) => v.id)) + 1,
-        ...formData,
-        usedCount: 0,
-        isActive: true,
-      };
-      setVouchers([...vouchers, newVoucher]);
-      toast.success("Đã thêm voucher mới thành công");
+  // ===============================
+  // TOGGLE ACTIVE
+  // ===============================
+  const handleToggleActive = async (id: number, isActive: boolean) => {
+    try {
+      await voucherAdminApi.toggle(id, isActive);
+      toast.success("Đã cập nhật trạng thái");
+      reload();
+    } catch {
+      toast.error("Không thể cập nhật trạng thái");
     }
-
-    setIsAddDialogOpen(false);
-    setEditingVoucher(null);
-    setFormData({
-      code: "",
-      name: "",
-      discountType: "percentage",
-      discountValue: 0,
-      minOrderValue: 0,
-      maxDiscount: 0,
-      usageLimit: 0,
-      validFrom: "",
-      validTo: "",
-    });
   };
 
-  const openEditDialog = (voucher: Voucher) => {
-    setEditingVoucher(voucher);
+  // ===============================
+  // DELETE
+  // ===============================
+  const handleDelete = async (id: number) => {
+    try {
+      await voucherAdminApi.delete(id);
+      toast.success("Xóa voucher thành công");
+      reload();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Không thể xóa voucher");
+    }
+  };
+
+  // ===============================
+  // EDIT
+  // ===============================
+  const openEditDialog = (v: Voucher) => {
+    setEditingVoucher(v);
     setFormData({
-      code: voucher.code,
-      name: voucher.name,
-      discountType: voucher.discountType,
-      discountValue: voucher.discountValue,
-      minOrderValue: voucher.minOrderValue,
-      maxDiscount: voucher.maxDiscount || 0,
-      usageLimit: voucher.usageLimit,
-      validFrom: voucher.validFrom,
-      validTo: voucher.validTo,
+      code: v.code,
+      type: v.type,
+      discountPercent: v.discountPercent,
+      value: v.value,
+      maxDiscount: v.maxDiscount,
+      minOrder: v.minOrder,
+      requiredPoints: v.requiredPoints,
+      startAt: v.startAt,
+      endAt: v.endAt,
+      expiryDate: v.expiryDate,
     });
-    setIsAddDialogOpen(true);
+    setIsDialogOpen(true);
+  };
+
+  // ===============================
+  // SUBMIT FORM (CREATE / UPDATE)
+  // ===============================
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      // UPDATE
+      if (editingVoucher) {
+        await voucherAdminApi.update(editingVoucher.id, formData);
+        toast.success("Cập nhật voucher thành công");
+      }
+      // CREATE
+      else {
+        await voucherAdminApi.create(formData);
+        toast.success("Thêm voucher mới thành công");
+      }
+
+      setIsDialogOpen(false);
+      setEditingVoucher(null);
+      reload();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Không thể lưu voucher");
+    }
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý Voucher</h1>
-          <p className="text-muted-foreground mt-1">
-            Quản lý phiếu giảm giá và khuyến mại
-          </p>
+          <h1 className="text-3xl font-bold">Quản lý Voucher</h1>
+          <p className="text-muted-foreground">Quản lý phiếu giảm giá & khuyến mại</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-          setIsAddDialogOpen(open);
-          if (!open) {
-            setEditingVoucher(null);
-            setFormData({
-              code: "",
-              name: "",
-              discountType: "percentage",
-              discountValue: 0,
-              minOrderValue: 0,
-              maxDiscount: 0,
-              usageLimit: 0,
-              validFrom: "",
-              validTo: "",
-            });
-          }
-        }}>
+
+        {/* Add/Edit Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={(v) => { setIsDialogOpen(v); if (!v) setEditingVoucher(null); }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Thêm voucher mới
+              <Plus className="w-4 h-4" /> Thêm voucher mới
             </Button>
           </DialogTrigger>
+
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingVoucher ? "Chỉnh sửa voucher" : "Thêm voucher mới"}
-              </DialogTitle>
+              <DialogTitle>{editingVoucher ? "Chỉnh sửa voucher" : "Thêm voucher mới"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="code">Mã voucher *</Label>
-                  <Input
-                    id="code"
-                    value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value.toUpperCase() })
-                    }
-                    placeholder="VD: WELCOME2024"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="name">Tên voucher *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Tên mô tả voucher"
-                    required
-                  />
-                </div>
-              </div>
 
+            <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* CODE + TYPE */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="discountType">Loại giảm giá *</Label>
+                <div>
+                  <Label>Mã voucher *</Label>
+                  <Input
+                    value={formData.code}
+                    onChange={(e) => setFormData((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label>Loại giảm *</Label>
                   <select
-                    id="discountType"
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background"
-                    value={formData.discountType}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        discountType: e.target.value as "percentage" | "fixed",
-                      })
-                    }
+                    className="w-full h-10 border rounded-md px-3"
+                    value={formData.type}
+                    onChange={(e) => setFormData((f) => ({ ...f, type: e.target.value as any }))}
                   >
-                    <option value="percentage">Phần trăm (%)</option>
+                    <option value="percent">Phần trăm (%)</option>
                     <option value="fixed">Số tiền cố định (VNĐ)</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="discountValue">
-                    Giá trị giảm {formData.discountType === "percentage" ? "(%)" : "(VNĐ)"} *
-                  </Label>
-                  <Input
-                    id="discountValue"
-                    type="number"
-                    value={formData.discountValue}
-                    onChange={(e) =>
-                      setFormData({ ...formData, discountValue: Number(e.target.value) })
-                    }
-                    min="0"
-                    max={formData.discountType === "percentage" ? "100" : undefined}
-                    required
-                  />
-                </div>
               </div>
 
+              {/* DISCOUNT */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="minOrderValue">Giá trị đơn hàng tối thiểu (VNĐ)</Label>
-                  <Input
-                    id="minOrderValue"
-                    type="number"
-                    value={formData.minOrderValue}
-                    onChange={(e) =>
-                      setFormData({ ...formData, minOrderValue: Number(e.target.value) })
-                    }
-                    min="0"
-                  />
-                </div>
-                {formData.discountType === "percentage" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="maxDiscount">Giảm tối đa (VNĐ)</Label>
+                {formData.type === "percent" ? (
+                  <div>
+                    <Label>Giảm (%) *</Label>
                     <Input
-                      id="maxDiscount"
+                      type="number"
+                      value={formData.discountPercent}
+                      onChange={(e) => setFormData((f) => ({ ...f, discountPercent: Number(e.target.value) }))}
+                      min={0}
+                      max={100}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <Label>Giảm (VNĐ) *</Label>
+                    <Input
+                      type="number"
+                      value={formData.value}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, value: Number(e.target.value) }))
+                      }
+                    />
+                  </div>
+                )}
+
+                {formData.type === "percent" && (
+                  <div>
+                    <Label>Tối đa (VNĐ)</Label>
+                    <Input
                       type="number"
                       value={formData.maxDiscount}
                       onChange={(e) =>
-                        setFormData({ ...formData, maxDiscount: Number(e.target.value) })
+                        setFormData((f) => ({ ...f, maxDiscount: Number(e.target.value) }))
                       }
-                      min="0"
                     />
                   </div>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="usageLimit">Giới hạn số lượt sử dụng *</Label>
-                <Input
-                  id="usageLimit"
-                  type="number"
-                  value={formData.usageLimit}
-                  onChange={(e) =>
-                    setFormData({ ...formData, usageLimit: Number(e.target.value) })
-                  }
-                  min="1"
-                  required
-                />
-              </div>
-
+              {/* MIN ORDER + REQUIRED POINTS */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="validFrom">Ngày bắt đầu *</Label>
+                <div>
+                  <Label>Đơn tối thiểu</Label>
                   <Input
-                    id="validFrom"
-                    type="date"
-                    value={formData.validFrom}
-                    onChange={(e) =>
-                      setFormData({ ...formData, validFrom: e.target.value })
-                    }
-                    required
+                    type="number"
+                    value={formData.minOrder}
+                    onChange={(e) => setFormData((f) => ({ ...f, minOrder: Number(e.target.value) }))}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="validTo">Ngày kết thúc *</Label>
+
+                <div>
+                  <Label>Điểm yêu cầu</Label>
                   <Input
-                    id="validTo"
-                    type="date"
-                    value={formData.validTo}
+                    type="number"
+                    value={formData.requiredPoints}
                     onChange={(e) =>
-                      setFormData({ ...formData, validTo: e.target.value })
+                      setFormData((f) => ({ ...f, requiredPoints: Number(e.target.value) }))
                     }
-                    required
+                  />
+                </div>
+              </div>
+
+              {/* DATE */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Ngày bắt đầu *</Label>
+                  <Input
+                    type="date"
+                    value={formData.startAt}
+                    onChange={(e) => setFormData((f) => ({ ...f, startAt: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <Label>Ngày kết thúc *</Label>
+                  <Input
+                    type="date"
+                    value={formData.endAt}
+                    onChange={(e) => setFormData((f) => ({ ...f, endAt: e.target.value }))}
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsAddDialogOpen(false);
-                    setEditingVoucher(null);
-                  }}
-                >
-                  Hủy
-                </Button>
-                <Button type="submit">
-                  {editingVoucher ? "Cập nhật" : "Thêm voucher"}
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
+                <Button type="submit">{editingVoucher ? "Cập nhật" : "Thêm voucher"}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tổng voucher
-            </CardTitle>
+          <CardHeader className="flex flex-row justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Tổng voucher</CardTitle>
             <Ticket className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalVouchers}</div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold">{stats.totalVouchers}</div></CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Đang hoạt động
-            </CardTitle>
+          <CardHeader className="flex flex-row justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Đang hoạt động</CardTitle>
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {stats.activeVouchers}
-            </div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold text-primary">{stats.activeVouchers}</div></CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tổng lượt sử dụng
-            </CardTitle>
+          <CardHeader className="flex flex-row justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Lượt dùng</CardTitle>
             <Users className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsed}</div>
-          </CardContent>
+          <CardContent><div className="text-2xl font-bold">{stats.totalUsed}</div></CardContent>
         </Card>
+
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Doanh thu từ voucher
-            </CardTitle>
+          <CardHeader className="flex flex-row justify-between pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Doanh thu quy ước</CardTitle>
             <DollarSign className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -423,14 +324,14 @@ const Vouchers = () => {
         </Card>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex gap-4 items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Tìm kiếm theo mã hoặc tên voucher..."
+                placeholder="Tìm mã voucher..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -440,116 +341,65 @@ const Vouchers = () => {
         </CardContent>
       </Card>
 
-      {/* Vouchers Table */}
+      {/* TABLE */}
       <Card>
         <CardContent className="pt-6">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left p-4 font-medium text-muted-foreground">
-                    Mã voucher
-                  </th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">
-                    Tên voucher
-                  </th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">
-                    Giảm giá
-                  </th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">
-                    Sử dụng
-                  </th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">
-                    Thời hạn
-                  </th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">
-                    Trạng thái
-                  </th>
-                  <th className="text-right p-4 font-medium text-muted-foreground">
-                    Hành động
-                  </th>
+                <tr className="border-b">
+                  <th className="text-left p-4">Mã</th>
+                  <th className="text-left p-4">Giảm giá</th>
+                  <th className="text-left p-4">Tối thiểu</th>
+                  <th className="text-left p-4">Thời gian</th>
+                  <th className="text-left p-4">Trạng thái</th>
+                  <th className="text-right p-4">Hành động</th>
                 </tr>
               </thead>
+
               <tbody>
-                {filteredVouchers.map((voucher) => (
-                  <tr key={voucher.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <Ticket className="w-4 h-4 text-primary" />
-                        <span className="font-mono font-semibold text-primary">
-                          {voucher.code}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="max-w-xs">
-                        <p className="font-medium">{voucher.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Tối thiểu: {voucher.minOrderValue.toLocaleString("vi-VN")}đ
-                        </p>
-                      </div>
-                    </td>
+                {filtered.map((v) => (
+                  <tr key={v.id} className="border-b hover:bg-muted/50">
+                    <td className="p-4 font-mono font-semibold text-primary">{v.code}</td>
+
                     <td className="p-4">
                       <Badge variant="secondary">
-                        {voucher.discountType === "percentage"
-                          ? `${voucher.discountValue}%`
-                          : `${voucher.discountValue.toLocaleString("vi-VN")}đ`}
+                        {v.type === "percent" ? `${v.discountPercent}%` : `${v.value.toLocaleString("vi-VN")}đ`}
                       </Badge>
-                      {voucher.maxDiscount && voucher.discountType === "percentage" && (
+
+                      {v.type === "percent" && v.maxDiscount > 0 && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Tối đa: {voucher.maxDiscount.toLocaleString("vi-VN")}đ
+                          Tối đa: {v.maxDiscount.toLocaleString("vi-VN")}đ
                         </p>
                       )}
                     </td>
+
+                    <td className="p-4">{v.minOrder.toLocaleString("vi-VN")}đ</td>
+
                     <td className="p-4">
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {voucher.usedCount} / {voucher.usageLimit}
-                        </span>
-                        <div className="w-full bg-muted rounded-full h-2 mt-1">
-                          <div
-                            className="bg-primary h-2 rounded-full"
-                            style={{
-                              width: `${(voucher.usedCount / voucher.usageLimit) * 100}%`,
-                            }}
-                          />
-                        </div>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(v.startAt).toLocaleDateString("vi-VN")} –{" "}
+                        {new Date(v.endAt).toLocaleDateString("vi-VN")}
                       </div>
                     </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Calendar className="w-3 h-3 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          {new Date(voucher.validFrom).toLocaleDateString("vi-VN")} -{" "}
-                          {new Date(voucher.validTo).toLocaleDateString("vi-VN")}
-                        </span>
-                      </div>
-                    </td>
+
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Switch
-                          checked={voucher.isActive}
-                          onCheckedChange={() => handleToggleActive(voucher.id)}
+                          checked={v.isActive}
+                          onCheckedChange={(value) => handleToggleActive(v.id, value)}
                         />
-                        <span className="text-sm">
-                          {voucher.isActive ? "Hoạt động" : "Tạm dừng"}
-                        </span>
+                        {v.isActive ? "Hoạt động" : "Tạm dừng"}
                       </div>
                     </td>
+
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(voucher)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(v)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(voucher.id)}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
@@ -557,6 +407,7 @@ const Vouchers = () => {
                   </tr>
                 ))}
               </tbody>
+
             </table>
           </div>
         </CardContent>
