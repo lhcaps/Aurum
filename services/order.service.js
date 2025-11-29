@@ -9,16 +9,24 @@ class OrderService {
   // ======================================================
   async create(userId, orderData) {
     // 🔑 CẬP NHẬT: Nhận các giá trị tính toán từ FE
-    const { 
-        items, subtotal, total, shippingFee, serviceFee, 
-        discountAmount, voucherCode, paymentMethod, 
-        pickupMethod, shippingAddress, lat, lng, storeId 
+    const {
+      items, subtotal, total, shippingFee, serviceFee,
+      discountAmount, voucherCode, paymentMethod,
+      pickupMethod, shippingAddress, lat, lng, storeId,
+      fulfillmentMethod,
+      isOnlinePaid
     } = orderData;
-    
+    const paidOnline = Boolean(isOnlinePaid);
+
+    let finalStatus = paidOnline ? "Completed" : "Pending";
+    let paymentStatus = paidOnline ? "Paid" : "Unpaid";
+    let amountPaid = paidOnline ? total : 0;
+    let changeAmount = 0;
+
     console.log("📦 Dữ liệu sản phẩm đầu vào từ FE (Item mẫu):", items[0]);
-    
+
     const pool = await getPool();
-    const connection = await pool.connect(); 
+    const connection = await pool.connect();
     const transaction = new sql.Transaction(connection);
 
     try {
@@ -39,39 +47,45 @@ class OrderService {
         .input("DeliveryAddress", sql.NVarChar(255), shippingAddress || null)
         .input("DeliveryLat", sql.Float, lat || null)
         .input("DeliveryLng", sql.Float, lng || null)
-        .input("Status", sql.NVarChar(50), "Pending")
+        .input("Status", sql.NVarChar(50), finalStatus)
+        .input("PaymentStatus", sql.NVarChar(50), paymentStatus)
+        .input("AmountPaid", sql.Decimal(18, 2), amountPaid)
+        .input("ChangeAmount", sql.Decimal(18, 2), changeAmount)
         .query(`
-          INSERT INTO Orders
-          (UserId, StoreId, Subtotal, ShippingFee, Total, PaymentMethod, FulfillmentMethod,
-           DeliveryAddress, DeliveryLat, DeliveryLng, Status)
+          INSERT INTO Orders (
+  UserId, StoreId, Subtotal, ShippingFee, Total,
+  PaymentMethod, PaymentStatus, AmountPaid, ChangeAmount,
+  FulfillmentMethod, DeliveryAddress, DeliveryLat, DeliveryLng, 
+  Status
+)
           OUTPUT INSERTED.Id
           VALUES
-          (@UserId, @StoreId, @Subtotal, @ShippingFee, @Total, @PaymentMethod, @FulfillmentMethod,
-           @DeliveryAddress, @DeliveryLat, @DeliveryLng, @Status)
+          (@UserId, @StoreId, @Subtotal, @ShippingFee, @Total, @PaymentMethod, @PaymentStatus, @AmountPaid, @ChangeAmount,
+           @FulfillmentMethod, @DeliveryAddress, @DeliveryLat, @DeliveryLng, @Status)
         `);
 
 
       const orderId = insertOrder.recordset[0].Id;
       console.log("🧾 Đơn hàng mới:", orderId);
-      
+
       // 🟢 Tạo ProductSummary JSON (LƯU TRỮ CHI TIẾT CÁC KHOẢN PHÍ)
       const summaryPayload = {
-          items: items.map((i) => ({
-             productId: i.productId,
-             productName: i.productName || i.name,
-             quantity: i.quantity,
-             price: i.price,
-             size: i.size || '',
-             toppings: i.toppings || []
-          })),
-          feesAndDiscounts: {
-              subtotal: subtotal,
-              shippingFee: shippingFee || 0,
-              serviceFee: serviceFee || 0,
-              discountAmount: discountAmount || 0,
-              voucherCode: voucherCode || null,
-              finalTotal: total
-          }
+        items: items.map((i) => ({
+          productId: i.productId,
+          productName: i.productName || i.name,
+          quantity: i.quantity,
+          price: i.price,
+          size: i.size || '',
+          toppings: i.toppings || []
+        })),
+        feesAndDiscounts: {
+          subtotal: subtotal,
+          shippingFee: shippingFee || 0,
+          serviceFee: serviceFee || 0,
+          discountAmount: discountAmount || 0,
+          voucherCode: voucherCode || null,
+          finalTotal: total
+        }
       };
       const productSummary = JSON.stringify(summaryPayload);
 
@@ -104,7 +118,7 @@ class OrderService {
       await new sql.Request(transaction)
         .input("OrderId", sql.Int, orderId)
         .input("OldStatus", sql.NVarChar(50), null)
-        .input("NewStatus", sql.NVarChar(50), "Pending")
+        .input("NewStatus", sql.NVarChar(50), finalStatus)
         .query(`
           INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus)
           VALUES (@OrderId, @OldStatus, @NewStatus)
@@ -185,7 +199,7 @@ class OrderService {
           const summary = JSON.parse(order.ProductSummary);
           // Lấy mảng items từ object summary
           if (summary.items) {
-             itemsArray = summary.items;
+            itemsArray = summary.items;
           }
         }
       } catch (e) {

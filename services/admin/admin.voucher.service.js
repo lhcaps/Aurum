@@ -1,56 +1,75 @@
 // services/admin/admin.voucher.service.js
 const { sql, poolPromise } = require("../../config/db");
+const { getPool } = require("../../config/db");
 
 class AdminVoucherService {
   // ✅ Danh sách tất cả vouchers (kèm thống kê lượt dùng)
   static async getAll() {
     const pool = await getPool();
     const result = await pool.request().query(`
-      SELECT 
-        v.Id, v.Code, v.Type, v.Value, v.MaxDiscount, v.MinOrder,
-        v.UsageLimit, v.UsedCount, v.IsActive,
-        v.StartAt, v.EndAt, v.CreatedAt, v.UpdatedAt,
-        COUNT(r.Id) AS RedemptionCount
-      FROM Vouchers v
-      LEFT JOIN VoucherRedemptions r ON v.Id = r.VoucherId
-      GROUP BY 
-        v.Id, v.Code, v.Type, v.Value, v.MaxDiscount, v.MinOrder,
-        v.UsageLimit, v.UsedCount, v.IsActive, 
-        v.StartAt, v.EndAt, v.CreatedAt, v.UpdatedAt
-      ORDER BY v.CreatedAt DESC
-    `);
+    SELECT 
+      v.Id, v.Code, v.Type, v.Value, v.MaxDiscount, v.MinOrder,
+      v.UsageLimit, v.UsedCount, v.IsActive,
+      v.StartAt, v.EndAt,
+      COUNT(r.Id) AS RedemptionCount
+    FROM Vouchers v
+    LEFT JOIN VoucherRedemptions r ON v.Id = r.VoucherId
+    GROUP BY 
+      v.Id, v.Code, v.Type, v.Value, v.MaxDiscount, v.MinOrder,
+      v.UsageLimit, v.UsedCount, v.IsActive, 
+      v.StartAt, v.EndAt
+    ORDER BY v.Id DESC
+  `);
     return result.recordset;
   }
 
+
   // ✅ Tạo mới voucher
   static async create(data) {
-    const {
-      Code, Type, Value, MaxDiscount, MinOrder,
-      UsageLimit, StartAt, EndAt, IsActive = true
-    } = data;
+const {
+  Code,
+  Type,
+  DiscountPercent,
+  Value,
+  MaxDiscount,
+  MinOrder,
+  RequiredPoints,
+  StartAt,
+  EndAt,
+  ExpiryDate,
+  IsActive = true
+} = data;
 
-    if (!Code || !Type || !Value)
-      throw new Error("Thiếu thông tin bắt buộc: Code, Type, Value");
+// ÉP VALUE VÀ DISCOUNTPERCENT CHO AN TOÀN
+const discountPercentSafe = Type === "percent" ? DiscountPercent : 0;
+const valueSafe = Type === "fixed" ? Value : 0;
 
-    const pool = await getPool();
-    await pool.request()
-      .input("Code", sql.NVarChar, Code)
-      .input("Type", sql.NVarChar, Type)
-      .input("Value", sql.Decimal(18, 2), Value)
-      .input("MaxDiscount", sql.Decimal(18, 2), MaxDiscount || null)
-      .input("MinOrder", sql.Decimal(18, 2), MinOrder || null)
-      .input("UsageLimit", sql.Int, UsageLimit || null)
-      .input("IsActive", sql.Bit, IsActive ? 1 : 0)
-      .input("StartAt", sql.DateTime2, StartAt || null)
-      .input("EndAt", sql.DateTime2, EndAt || null)
-      .query(`
-        INSERT INTO Vouchers
-        (Code, Type, Value, MaxDiscount, MinOrder, UsageLimit, UsedCount, IsActive, StartAt, EndAt, CreatedAt)
-        VALUES (@Code, @Type, @Value, @MaxDiscount, @MinOrder, @UsageLimit, 0, @IsActive, @StartAt, @EndAt, SYSUTCDATETIME())
-      `);
+const pool = await getPool();
 
-    return { message: "✅ Tạo voucher thành công" };
+await pool.request()
+  .input("Code", sql.NVarChar, Code)
+  .input("Type", sql.NVarChar, Type)
+  .input("DiscountPercent", sql.Int, discountPercentSafe)
+  .input("Value", sql.Decimal(18,2), valueSafe)
+  .input("MaxDiscount", sql.Decimal(18,2), MaxDiscount || 0)
+  .input("MinOrder", sql.Decimal(18,2), MinOrder || 0)
+  .input("RequiredPoints", sql.Int, RequiredPoints || 0)
+  .input("StartAt", sql.DateTime2, StartAt)
+  .input("EndAt", sql.DateTime2, EndAt)
+  .input("ExpiryDate", sql.DateTime2, ExpiryDate)
+  .input("IsActive", sql.Bit, IsActive ? 1 : 0) 
+  .query(`
+    INSERT INTO Vouchers
+    (Code, Type, DiscountPercent, Value, MaxDiscount, MinOrder,
+     RequiredPoints, UsedCount, IsActive, StartAt, EndAt, ExpiryDate)
+    VALUES 
+    (@Code, @Type, @DiscountPercent, @Value, @MaxDiscount, @MinOrder,
+     @RequiredPoints, 0, @IsActive, @StartAt, @EndAt, @ExpiryDate)
+  `);
+
+    return { message: "Tạo voucher thành công" };
   }
+
 
   // ✅ Cập nhật voucher
   static async update(id, data) {
@@ -72,7 +91,7 @@ class AdminVoucherService {
         UPDATE Vouchers
         SET Code=@Code, Type=@Type, Value=@Value, MaxDiscount=@MaxDiscount,
             MinOrder=@MinOrder, UsageLimit=@UsageLimit, IsActive=@IsActive,
-            StartAt=@StartAt, EndAt=@EndAt, UpdatedAt=SYSUTCDATETIME()
+            StartAt=@StartAt, EndAt=@EndAt
         WHERE Id=@Id
       `);
 

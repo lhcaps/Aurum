@@ -22,7 +22,7 @@ class PosOrderService {
             FROM Orders o
             LEFT JOIN Users u ON o.UserId = u.Id
             -- Lấy các trạng thái active của quy trình POS
-            WHERE o.Status IN ('pending','waiting','preparing','done') 
+            WHERE o.Status IN ('pending','waiting','preparing', 'delivery', 'completed', 'done') 
             ORDER BY o.CreatedAt DESC
         `);
 
@@ -226,17 +226,22 @@ class PosOrderService {
         const pool = await getPool();
 
         // 1. Lấy thông tin đơn hàng
+        // 1. Lấy thông tin đơn hàng
         const rs = await pool.request()
             .input("OrderId", sql.Int, orderId)
             .query(`
-            SELECT Id, Total, PaymentStatus, Status
-            FROM Orders
-            WHERE Id = @OrderId
-        `);
+        SELECT Id, Total, PaymentStatus, Status, FulfillmentMethod
+        FROM Orders
+        WHERE Id = @OrderId
+    `);
 
         const order = rs.recordset[0];
         if (!order) throw new Error("Order không tồn tại");
-        if (order.PaymentStatus === "paid") throw new Error("Order đã thanh toán");
+
+        // CHẶN DELIVERY ORDER → KHÔNG CHO PAYMENT PHÁ DỮ LIỆU
+        if (order.FulfillmentMethod !== "AtStore") {
+            throw new Error("Không thể thanh toán đơn Delivery tại POS.");
+        }
 
         // 2. Kiểm tra số tiền
         const total = Number(order.Total);
@@ -259,19 +264,18 @@ class PosOrderService {
             .input("ChangeAmount", sql.Decimal(18, 2), change)
             .input("OldStatus", sql.NVarChar(50), order.Status)
             .query(`
-UPDATE Orders
-SET 
-    PaymentMethod = @PaymentMethod,
-    AmountPaid = @AmountPaid,
-    ChangeAmount = @ChangeAmount,
-    PaymentStatus = 'paid',
-    [Status] = 'complete'
-WHERE Id = @OrderId;
+            UPDATE Orders
+            SET 
+                PaymentMethod = @PaymentMethod,
+                AmountPaid = @AmountPaid,
+                ChangeAmount = @ChangeAmount,
+                PaymentStatus = 'paid',
+                Status = 'completed'   -- ✔ QUAN TRỌNG
+            WHERE Id = @OrderId;
 
-INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
-VALUES (@OrderId, @OldStatus, 'complete', GETDATE());
-`);
-
+            INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus, ChangedAt)
+            VALUES (@OrderId, @OldStatus, 'completed', GETDATE());
+        `);
 
         // 4. Gọi inventory
         await PosInventoryService.handleOrderPaid(orderId);
@@ -284,6 +288,50 @@ VALUES (@OrderId, @OldStatus, 'complete', GETDATE());
             changeAmount: change
         };
     }
+    static async getHistory(user) {
+        const pool = await getPool();
+
+        const rs = await pool.request().query(`
+     SELECT 
+        o.Id,
+        o.Total,
+        o.PaymentMethod,
+        o.PaymentStatus,
+        o.Status,
+        o.CreatedAt,
+        p.Name AS ProductName,
+        oi.Quantity,
+        oi.Size
+     FROM Orders o
+     JOIN OrderItems oi ON o.Id = oi.OrderId
+     JOIN Products p ON oi.ProductId = p.Id
+     WHERE o.Status IN ('completed','done','paid')
+     ORDER BY o.CreatedAt DESC
+  `);
+
+        // Gom nhóm theo OrderId
+        const map = new Map();
+        rs.recordset.forEach(row => {
+            if (!map.has(row.Id)) {
+                map.set(row.Id, {
+                    id: row.Id,
+                    total: row.Total,
+                    paymentMethod: row.PaymentMethod,
+                    time: row.CreatedAt,
+                    status: row.Status,
+                    items: []
+                });
+            }
+            map.get(row.Id).items.push({
+                name: row.ProductName,
+                size: row.Size,
+                quantity: row.Quantity
+            });
+        });
+
+        return Array.from(map.values());
+    }
+
 }
 
 module.exports = PosOrderService;

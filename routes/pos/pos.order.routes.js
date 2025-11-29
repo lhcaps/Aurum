@@ -70,4 +70,11 @@ router.patch(
   PosOrderController.updateStatus
 );
 
+router.get(
+  "/history",
+  authenticateJWT,
+  authorizeEmployee(["cashier"]),
+  PosOrderController.getHistory
+);
+
 module.exports = router;
