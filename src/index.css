@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Phúc Long Brand Colors - Premium Green & Brown Theme */
+    /* Core */
     --background: 42 25% 97%;
     --foreground: 30 25% 12%;
 
@@ -18,10 +18,12 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 30 25% 12%;
 
-    /* Primary: Phúc Long Green */
-    --primary: 142 45% 35%;
+    /* ============================================================
+       PRIMARY — AURUM DARK BROWN
+       ============================================================ */
+    --primary: 33 41% 31%;            /* #6E522E */
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 142 45% 45%;
+    --primary-glow: 33 41% 45%;       /* #A07844 */
 
     /* Secondary: Coffee Brown */
     --secondary: 25 35% 45%;
@@ -39,33 +41,55 @@ All colors MUST be HSL.
 
     --border: 42 20% 88%;
     --input: 42 20% 88%;
-    --ring: 142 45% 35%;
+    --ring: 33 41% 31%;               /* sync with primary */
 
     --radius: 0.75rem;
 
-    /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(142 45% 35%), hsl(142 45% 45%));
-    --gradient-gold: linear-gradient(135deg, hsl(38 65% 55%), hsl(45 75% 65%));
-    --gradient-coffee: linear-gradient(135deg, hsl(25 35% 45%), hsl(30 40% 35%));
+    /* ============================================================
+       GRADIENTS
+       ============================================================ */
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(33 41% 31%),
+      hsl(33 41% 45%)
+    );
+
+    --gradient-gold: linear-gradient(
+      135deg,
+      hsl(38 65% 55%),
+      hsl(45 75% 65%)
+    );
+
+    --gradient-coffee: linear-gradient(
+      135deg,
+      hsl(25 35% 45%),
+      hsl(30 40% 35%)
+    );
 
     /* Shadows */
-    --shadow-elegant: 0 4px 20px -4px hsl(142 45% 35% / 0.15);
+    --shadow-elegant: 0 4px 20px -4px hsl(33 41% 31% / 0.15);
     --shadow-soft: 0 2px 10px -2px hsl(30 25% 12% / 0.08);
 
     /* Sidebar */
     --sidebar-background: 30 20% 15%;
     --sidebar-foreground: 42 20% 85%;
-    --sidebar-primary: 142 45% 35%;
+
+    --sidebar-primary: 33 41% 31%;             /* BROWN */
     --sidebar-primary-foreground: 0 0% 100%;
+
     --sidebar-accent: 30 25% 22%;
     --sidebar-accent-foreground: 42 20% 90%;
-    --sidebar-border: 30 15% 25%;
-    --sidebar-ring: 142 45% 45%;
 
-    /* Animations */
+    --sidebar-border: 30 15% 25%;
+    --sidebar-ring: 33 41% 45%;                /* glow */
+
+    /* Animation */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /* ============================================================
+     DARK MODE — Coffee Black + Latte Brown Blend
+     ============================================================ */
   .dark {
     --background: 30 20% 8%;
     --foreground: 42 20% 92%;
@@ -76,7 +100,8 @@ All colors MUST be HSL.
     --popover: 30 20% 12%;
     --popover-foreground: 42 20% 92%;
 
-    --primary: 142 45% 45%;
+    /* PRIMARY (dark mode brighter brown) */
+    --primary: 33 41% 45%;
     --primary-foreground: 30 20% 8%;
 
     --secondary: 25 35% 35%;
@@ -93,16 +118,19 @@ All colors MUST be HSL.
 
     --border: 30 15% 20%;
     --input: 30 15% 20%;
-    --ring: 142 45% 45%;
+    --ring: 33 41% 45%;               /* glow */
 
     --sidebar-background: 30 20% 10%;
     --sidebar-foreground: 42 20% 85%;
-    --sidebar-primary: 142 45% 40%;
+
+    --sidebar-primary: 33 41% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
+
     --sidebar-accent: 30 25% 18%;
     --sidebar-accent-foreground: 42 20% 90%;
+
     --sidebar-border: 30 15% 15%;
-    --sidebar-ring: 142 45% 45%;
+    --sidebar-ring: 33 41% 45%;
   }
 }
 
