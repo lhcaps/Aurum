@@ -1,16 +1,17 @@
 export type OrderStatus =
-  "pending" |
-  "waiting" |    
-  "preparing" |   
-  "done" |
-  "completed" |
-  "brewing" |     
-  "cancelled" |
-  "refunded" |
-  "processing" |
-  "new";       
+  | "pending"
+  | "waiting"
+  | "preparing"
+  | "brewing"
+  | "done"
+  | "completed"
+  | "cancelled"
+  | "refunded"
+  | "processing"
+  | "new";
 
 export type PaymentStatus = "unpaid" | "paid" | "refunded";
+
 export type PaymentMethod = "cash" | "momo" | "zalopay" | "bank_transfer";
 
 export interface OrderItem {
@@ -24,6 +25,8 @@ export interface OrderItem {
   notes?: string;
 }
 
+export type FulfillmentMethod = "Delivery" | "AtStore";
+
 export interface Order {
   id: number;
   userId: number;
@@ -33,7 +36,7 @@ export interface Order {
   subtotal?: number;
   shippingFee?: number;
 
-  status: OrderStatus; // Sẽ bao gồm tất cả các status đã sửa ở trên
+  status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod?: PaymentMethod;
 
@@ -46,9 +49,15 @@ export interface Order {
 
   productSummary?: string;
 
-  // FE generated fields
+  // Backend field
+  fulfillmentMethod?: FulfillmentMethod;
+
+  // FE computed fields
   orderNumber?: number;
   time?: string;
-  type?: "take-away" | "dine-in";
+
+  // FE derived type (Cashier/Barista)
+  type: "delivery" | "atstore";
+
   cashier?: string;
 }

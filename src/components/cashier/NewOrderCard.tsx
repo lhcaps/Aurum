@@ -46,7 +46,7 @@ export function NewOrderCard({ order, onConfirm, onViewDetails }: NewOrderCardPr
 
 <div className="space-y-2 mb-4">
   {order.items.length === 0 && (
-    <p className="text-xs text-muted-foreground">Không có sản phẩm</p>
+    <p className="text-xs text-muted-foreground">Không có sản phẩmm</p>
   )}
 
   {order.items.map((item, idx) => (
@@ -54,9 +54,7 @@ export function NewOrderCard({ order, onConfirm, onViewDetails }: NewOrderCardPr
       <p className="font-medium">
         {item.name ?? "Không rõ sản phẩm"} x{item.quantity}
       </p>
-      <p className="text-xs text-muted-foreground">
-        {item.price.toLocaleString("vi-VN")}₫
-      </p>
+
     </div>
   ))}
 </div>

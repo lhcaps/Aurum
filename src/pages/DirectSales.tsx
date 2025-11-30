@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useOrders } from "@/contexts/OrderContext";
 import { toast } from "sonner";
 import { productService } from "@/services/product.service";
 import { PaymentDialog } from "@/components/cashier/PaymentDialog";
@@ -90,7 +89,6 @@ export default function DirectSales() {
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   // Payment states
-  const { addOrder } = useOrders();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [orderToPay, setOrderToPay] = useState<any>(null);
 
@@ -191,7 +189,7 @@ export default function DirectSales() {
 
     // Chuẩn bị payload gửi BE
     const itemsPayload = cart.map((item) => ({
-      productId: parseInt(item.product.id, 10), 
+      productId: parseInt(item.product.id, 10),
       name: item.product.name,
       quantity: item.quantity,
       price: item.totalPrice,
@@ -202,9 +200,29 @@ export default function DirectSales() {
 
     const orderPayload = {
       items: itemsPayload,
+
+      // FE phải gửi
+      subtotal: totalAmount,
       total: totalAmount,
+      shippingFee: 0,
+      serviceFee: 0,
+      discountAmount: 0,
       voucherCode: null,
+
+      // BẮT BUỘC phải có
+      paymentMethod: "COD",            // thanh toán tại quầy
+      fulfillmentMethod: "AtStore",    // đơn tại chỗ (DirectSales)
+      pickupMethod: "AtStore",
+
+      // Delivery info – không dùng → set null
+      shippingAddress: null,
+      lat: null,
+      lng: null,
+
+      storeId: 1,
+      isOnlinePaid: false
     };
+
 
     try {
       // Gọi API tạo đơn
@@ -229,7 +247,7 @@ export default function DirectSales() {
       };
 
       // Cập nhật UI
-      addOrder(finalizedOrder);
+      setOrderToPay(finalizedOrder);
       setOrderToPay(finalizedOrder);
       setPaymentDialogOpen(true);
       setCart([]);
