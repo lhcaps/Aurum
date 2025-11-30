@@ -1,24 +1,35 @@
 import api from "@/lib/api";
+
 export type BaristaUpdateStatus = "brewing" | "done";
 
 export const BaristaOrderAPI = {
-
+  // ==========================================
+  // GET BARISTA QUEUE (POS pipeline)
+  // ==========================================
   async getOrders() {
-    // GET /api/admin/workflow/barista-orders (Đúng)
-    return api.get("/admin/workflow/barista-orders");
+    // KHÔNG thêm /api vì axios đã có baseURL="/api"
+    return api.get("/pos/queue");
   },
 
+  // ==========================================
+  // UPDATE BARISTA STATUS
+  // ==========================================
   async updateStatus(id: number, status: BaristaUpdateStatus) {
     if (status === "brewing") {
-      // 1. FIX: Dùng endpoint chính xác để chuyển từ new -> brewing (send-to-barista)
-      // Route 2: PATCH /api/admin/workflow/:id/send-to-barista
-      return api.patch(`/admin/workflow/${id}/send-to-barista`);
+      // UI “brewing” → BE cần “preparing”
+      return api.patch(`/pos/status/${id}`, {
+        status: "preparing",
+      });
     }
-    if (status === "done") {
-      return api.patch(`/admin/workflow/${id}/complete-making`);
-    }
-    // Đảm bảo trả về Promise nếu trạng thái không khớp
-    return Promise.reject(new Error("Invalid status provided for Barista update."));
-  }
 
+    if (status === "done") {
+      return api.patch(`/pos/status/${id}`, {
+        status: "done",
+      });
+    }
+
+    return Promise.reject(
+      new Error("Invalid status provided for Barista update.")
+    );
+  },
 };
