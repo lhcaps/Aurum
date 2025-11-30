@@ -32,11 +32,10 @@ function authenticateJWT(req, res, next) {
     const decoded = jwt.verify(token, JWT_SECRET);
 
     // 🔑 FIX: Chuẩn hóa trường ID từ token (decoded.id) thành req.user.userId
-req.user = { 
-    id: decoded.id || decoded.userId,   // CHUẨN
-    userId: decoded.id || decoded.userId, // optional để không lỗi chéo
-    ...decoded
-};
+      req.user = {
+          userId: decoded.id || decoded.userId, // Ưu tiên decoded.id (thường là JWT), fallback về decoded.userId
+          ...decoded
+      }; 
 
     console.log(`✅ JWT Auth Success: User ID ${req.user.userId} authenticated.`);
 

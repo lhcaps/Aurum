@@ -44,9 +44,9 @@ class PosInventoryService {
       const recipeRs = await pool.request()
         .input("ProductId", sql.Int, item.ProductId)
         .query(`
-          SELECT IngredientId, QuantityPerUnit
-          FROM ProductRecipes
-          WHERE ProductId = @ProductId
+          SELECT InventoryId AS IngredientId, QuantityPerProduct
+FROM ProductRecipes
+WHERE ProductId = @ProductId
         `);
 
       for (const cp of recipeRs.recordset) {

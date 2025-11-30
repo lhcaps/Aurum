@@ -7,7 +7,7 @@ class OrderService {
   // ======================================================
   // 🟢 Tạo đơn hàng mới
   // ======================================================
-  async create(userId, orderData) {
+  async create(userId, orderData, ) {
     // 🔑 CẬP NHẬT: Nhận các giá trị tính toán từ FE
     const {
       items, subtotal, total, shippingFee, serviceFee,
@@ -54,17 +54,21 @@ class OrderService {
         .input("AmountPaid", sql.Decimal(18, 2), amountPaid)
         .input("ChangeAmount", sql.Decimal(18, 2), changeAmount)
         .query(`
-          INSERT INTO Orders (
-  UserId, StoreId, Subtotal, ShippingFee, Total,
-  PaymentMethod, PaymentStatus, AmountPaid, ChangeAmount,
-  FulfillmentMethod, DeliveryAddress, DeliveryLat, DeliveryLng, 
-  Status
-)
-          OUTPUT INSERTED.Id
-          VALUES
-          (@UserId, @StoreId, @Subtotal, @ShippingFee, @Total, @PaymentMethod, @PaymentStatus, @AmountPaid, @ChangeAmount,
-           @FulfillmentMethod, @DeliveryAddress, @DeliveryLat, @DeliveryLng, @Status)
-        `);
+  INSERT INTO dbo.Orders (
+    UserId, StoreId, Subtotal, ShippingFee, Total,
+    PaymentMethod, PaymentStatus, AmountPaid, ChangeAmount,
+    FulfillmentMethod, DeliveryAddress, DeliveryLat, DeliveryLng, 
+    Status
+  )
+  OUTPUT INSERTED.Id
+  VALUES (
+    @UserId, @StoreId, @Subtotal, @ShippingFee, @Total,
+    @PaymentMethod, @PaymentStatus, @AmountPaid, @ChangeAmount,
+    @FulfillmentMethod, @DeliveryAddress, @DeliveryLat, @DeliveryLng, 
+    @Status
+  )
+`);
+
 
 
       const orderId = insertOrder.recordset[0].Id;
@@ -96,10 +100,11 @@ class OrderService {
         .input("OrderId", sql.Int, orderId)
         .input("ProductSummary", sql.NVarChar, productSummary)
         .query(`
-          UPDATE Orders
-          SET ProductSummary = @ProductSummary
-          WHERE Id = @OrderId
-        `);
+  UPDATE dbo.Orders
+  SET Status = N'Cancelled'
+  WHERE Id=@OrderId AND UserId=@UserId
+`);
+
 
 
       // 2️⃣ Thêm chi tiết sản phẩm
@@ -126,9 +131,13 @@ class OrderService {
         .input("OldStatus", sql.NVarChar(50), null)
         .input("NewStatus", sql.NVarChar(50), finalStatus) // finalStatus = 'Pending'
         .query(`
-          INSERT INTO OrderHistory (OrderId, OldStatus, NewStatus)
-          VALUES (@OrderId, @OldStatus, @NewStatus)
-        `);
+  UPDATE dbo.Orders
+  SET Status = 'waiting'
+  WHERE Id = @OrderId;
+
+  INSERT INTO dbo.OrderHistory (OrderId, OldStatus, NewStatus)
+  VALUES (@OrderId, 'Pending', 'waiting');
+`);
 
       // 🔄 AUTO ĐẨY ĐƠN DELIVERY SANG HÀNG ĐỢI PHA (waiting)
       if (fulfillmentMethod === "Delivery") {
@@ -206,11 +215,10 @@ class OrderService {
     O.CreatedAt    AS OrderDate,
     O.PaymentMethod,
     O.ProductSummary
-  FROM Orders O
+  FROM dbo.Orders O
   WHERE O.UserId = @UserId
   ORDER BY O.CreatedAt DESC
 `);
-
     // ✅ FIX: Xử lý dữ liệu sau khi truy vấn để chuyển ProductSummary thành mảng items
     return result.recordset.map(order => {
       let itemsArray = [];
@@ -253,9 +261,10 @@ class OrderService {
       .input("OrderId", sql.Int, orderId)
       .input("UserId", sql.Int, userId)
       .query(`
-        SELECT * FROM Orders
-        WHERE Id = @OrderId AND UserId = @UserId
-      `);
+  SELECT * FROM dbo.Orders
+  WHERE Id = @OrderId AND UserId = @UserId
+`);
+
 
     if (!header.recordset.length) return null;
 
@@ -297,8 +306,7 @@ class OrderService {
     const oldStatusRes = await pool
       .request()
       .input("OrderId", sql.Int, orderId)
-      .query(`SELECT Status FROM Orders WHERE Id=@OrderId`);
-    const oldStatus = oldStatusRes.recordset[0]?.Status;
+      .query(`SELECT Status FROM dbo.Orders WHERE Id=@OrderId`); const oldStatus = oldStatusRes.recordset[0]?.Status;
 
     if (!oldStatus) throw new Error("Đơn hàng không tồn tại");
 
@@ -325,6 +333,17 @@ class OrderService {
 
     return { orderId, oldStatus, newStatus: "Cancelled" };
   }
+  // ======================================================
+// 🟢 Tạo đơn hàng cho POS (Cashier)
+// ======================================================
+async createFromPOS(employeeId, orderData) {
+  return this._createInternal({
+    createdBy: employeeId,
+    isEmployee: true,
+    orderData
+  });
+}
+
 }
 
 module.exports = new OrderService();

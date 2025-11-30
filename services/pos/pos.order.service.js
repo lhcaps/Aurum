@@ -99,13 +99,16 @@ class PosOrderService {
 
         try {
             await transaction.begin();
-            const empRs = await new sql.Request(transaction)
-                .input("UserId", sql.Int, user.id)
-                .query(`
-                SELECT TOP 1 BranchId AS StoreId
-                FROM Employees
-                WHERE UserId = @UserId
-            `);
+const empRs = await new sql.Request(transaction)
+    .input("EmployeeId", sql.Int, user.id)
+    .query(`
+        SELECT TOP 1 BranchId AS StoreId
+        FROM Employees
+        WHERE Id = @EmployeeId
+    `);
+
+
+
 
 
             const storeId = empRs.recordset[0]?.StoreId;
@@ -115,7 +118,7 @@ class PosOrderService {
             }
             // Insert Order (BỔ SUNG CÁC TRƯỜNG THIẾU)
             const orderResult = await new sql.Request(transaction)
-            
+.input("EmployeeId", sql.Int, user.id)
                 .input("UserId", sql.Int, user.id)
                 .input("StoreId", sql.Int, storeId)
                 .input("Status", sql.NVarChar, "pending")
@@ -128,12 +131,12 @@ class PosOrderService {
                 .query(`
                 -- Order table có StoreId nên phải thêm vào INSERT
 INSERT INTO Orders 
-(UserId, StoreId, Status, PaymentStatus, Total, FulfillmentMethod, ShippingFee, CreatedAt)
+(EmployeeId, StoreId, Status, PaymentStatus, Total, FulfillmentMethod, ShippingFee, CreatedAt)
 OUTPUT INSERTED.Id
 VALUES 
-(@UserId, @StoreId, @Status, @PaymentStatus, @Total, @FulfillmentMethod, @ShippingFee, GETDATE())
+(@EmployeeId, @StoreId, @Status, @PaymentStatus, @Total, @FulfillmentMethod, @ShippingFee, GETDATE())
                 `);
-                const orderId = orderResult.recordset[0].Id;
+            const orderId = orderResult.recordset[0].Id;
 
             // 3. Insert Items
             // 3. Insert Items — LẤY PRICE + NAME TỪ DB (KHÔNG BAO GIỜ LẤY TỪ FE)
@@ -156,7 +159,7 @@ VALUES
 
                 await new sql.Request(transaction)
                     .input("OrderId", sql.Int, orderId)
-                    
+
                     .input("ProductId", sql.Int, item.productId)
                     .input("ProductName", sql.NVarChar(255), product.Name)
                     .input("Size", sql.NVarChar(20), item.size || null)
@@ -184,12 +187,20 @@ VALUES
             };
 
         } catch (err) {
+            console.error("========== SQL DEBUG ==========");
+            console.error("MESSAGE:", err.message);
+            console.error("LINE:", err.lineNumber);
+            console.error("STATE:", err.state);
+            console.error("CLASS:", err.class);
+            console.error("SQL ERROR OBJ:", err);
+
+            // In luôn toàn bộ query SQL cuối cùng mà Request đang giữ
+            console.error("RAW PRECEDING ERRORS:", err.precedingErrors);
+
             await transaction.rollback();
-            console.error("❌ [createOrder] SQL Error:", err);
             throw new Error(`Lỗi tạo đơn hàng: ${err.message}`);
-        } finally {
-            if (connection) connection.close();
         }
+
     }
 
     // =======================================
