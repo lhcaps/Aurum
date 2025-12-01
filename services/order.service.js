@@ -96,14 +96,15 @@ class OrderService {
       const productSummary = JSON.stringify(summaryPayload);
 
       // 🟢 Lưu ProductSummary vào Orders
-      await new sql.Request(transaction)
-        .input("OrderId", sql.Int, orderId)
-        .input("ProductSummary", sql.NVarChar, productSummary)
-        .query(`
-  UPDATE dbo.Orders
-  SET Status = N'Cancelled'
-  WHERE Id=@OrderId AND UserId=@UserId
-`);
+await new sql.Request(transaction)
+  .input("OrderId", sql.Int, orderId)
+.input("ProductSummary", sql.NVarChar(sql.MAX), productSummary)
+  .query(`
+    UPDATE dbo.Orders
+    SET ProductSummary = @ProductSummary
+    WHERE Id=@OrderId
+  `);
+
 
 
 
@@ -268,12 +269,12 @@ class OrderService {
 
     if (!header.recordset.length) return null;
 
-    const items = await pool
-      .request()
-      .input("OrderId", sql.Int, orderId)
-      .query(`
-        SELECT * FROM OrderDetails WHERE OrderId = @OrderId
-      `);
+ const items = await pool
+  .request()
+  .input("OrderId", sql.Int, orderId)
+  .query(`
+    SELECT * FROM OrderItems WHERE OrderId = @OrderId
+  `);
 
     return {
       ...header.recordset[0],
