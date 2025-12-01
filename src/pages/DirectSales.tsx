@@ -14,6 +14,7 @@ import { productService } from "@/services/product.service";
 import { PaymentDialog } from "@/components/cashier/PaymentDialog";
 import { createOrderApi } from "@/services/orderWorkflow";
 import { ToppingService } from "@/lib/menu/toppingService";
+import { Coffee, IceCream, Cake, Salad, Wine, UtensilsCrossed } from "lucide-react";
 
 // ===============================
 // INTERFACES + CONST
@@ -29,25 +30,17 @@ interface Product {
 }
 
 const sizes = [
-  { id: "M", name: "Size M", diff: -14000 },
+  { id: "M", name: "Size M", diff: -5000 },
   { id: "L", name: "Size L", diff: 0 },
 ];
 
-
 const categories = [
-  { id: "all", name: "Tất cả", icon: "🍽️" },
-  { id: "coffee", name: "Cà phê", icon: "☕" },
-  { id: "tea", name: "Trà", icon: "🍵" },
-  { id: "smoothie", name: "Sinh tố", icon: "🥤" },
-  { id: "food", name: "Đồ ăn", icon: "🥖" },
-];
-
-const iceOptions = [
-  { id: "100", name: "Đá 100%" },
-  { id: "70", name: "Đá 70%" },
-  { id: "50", name: "Đá 50%" },
-  { id: "30", name: "Đá 30%" },
-  { id: "0", name: "Không đá" },
+  { id: "all", name: "Tất cả", icon: UtensilsCrossed },
+  { id: "3", name: "Cà phê", icon: Coffee },
+  { id: "19", name: "Trà", icon: Wine },
+  { id: "20", name: "Sinh tố", icon: IceCream },
+  { id: "21", name: "Bánh", icon: Cake },
+  { id: "22", name: "Đồ ăn nhẹ", icon: Salad },
 ];
 
 interface CartItem {
@@ -60,33 +53,26 @@ interface CartItem {
   note?: string;
 }
 
-
 // ===============================
 // COMPONENT
 // ===============================
 export default function DirectSales() {
 
   const user = JSON.parse(localStorage.getItem("auth_user") || "{}");
-
   // STATES
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
-
   const [selectedSize, setSelectedSize] = useState("M");
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [selectedIce, setSelectedIce] = useState("100");
-
   const [products, setProducts] = useState<Product[]>([]);
   const [toppings, setToppings] = useState<any[]>([]);
-
   const [loadingProducts, setLoadingProducts] = useState(true);
-
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [orderToPay, setOrderToPay] = useState<any>(null);
-
   const [moneyReceived, setMoneyReceived] = useState<number | null>(null);
   const [changeAmount, setChangeAmount] = useState(0);
 
@@ -105,36 +91,53 @@ export default function DirectSales() {
     }
   }, [moneyReceived, totalAmount]);
 
-
   // FETCH PRODUCTS
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoadingProducts(true);
-      try {
-        const [productData, toppingData] = await Promise.all([
-          productService.getAllProductsForCashier(),
-          ToppingService.getAll(),
-        ]);
-      console.log("TOPPING DATA:", toppingData);
+useEffect(() => {
+  const fetchData = async () => {
+    setLoadingProducts(true);
+    try {
+      const [productData, toppingData] = await Promise.all([
+        productService.getAllProductsForCashier(),
+        ToppingService.getAll(),
+      ]);
 
-        setProducts(productData);
-        setToppings(toppingData);   // ✔ topping từ DB
-      } catch (error) {
-        toast.error("Không thể tải dữ liệu.");
-      } finally {
-        setLoadingProducts(false);
-      }
-    };
-    fetchData();
-  }, []);
+      console.log("========== DEBUG PRODUCT ===========");
+      console.table(productData);
+
+      console.log("========== DEBUG TOPPING ===========");
+      console.table(toppingData);
+
+      setProducts(productData);
+      setToppings(toppingData);
+    } catch (error) {
+      toast.error("Không thể tải dữ liệu.");
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+  fetchData();
+}, []);
 
 
   // Filter products
-  const filteredProducts = products.filter((p) => {
-    const matchCategory = selectedCategory === "all" || p.category === selectedCategory;
-    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredProducts = products.filter((p: any) => {
+    const rawCategory =
+      p.category ??
+      p.categoryId ??
+      p.CategoryId ??
+      p.CategoryID ??
+      p.CategorySlug;
+
+    const matchCategory =
+      selectedCategory === "all" ||
+      String(rawCategory) === String(selectedCategory);
+
+    const matchSearch =
+      p.name?.toLowerCase().includes(searchQuery.toLowerCase());
+
     return matchCategory && matchSearch;
   });
+
 
   // ===========================
   // CART HELPERS
@@ -162,7 +165,6 @@ export default function DirectSales() {
 
     return price;
   };
-
 
   const addToCart = () => {
     if (!selectedProduct) return;
@@ -201,7 +203,6 @@ export default function DirectSales() {
     setCart(prev => prev.filter((_, i) => i !== index));
   };
 
-
   // ===========================
   // HANDLE CHECKOUT
   // ===========================
@@ -211,7 +212,6 @@ export default function DirectSales() {
       toast.error("Giỏ hàng trống");
       return;
     }
-
     if (moneyReceived === null || moneyReceived < totalAmount) {
       toast.error("Tiền khách đưa không đủ");
       return;
@@ -227,8 +227,6 @@ export default function DirectSales() {
       topping: item.selectedToppings.join(","),  // ✔ gửi ID topping
       // ✔ topping là string, không phải array
     }));
-
-
 
     const orderPayload = {
       items: itemsPayload,
@@ -256,11 +254,8 @@ export default function DirectSales() {
       lng: null
     }
 
-
-
     try {
       const res = await createOrderApi(orderPayload);
-
       const finalOrder = {
         id: res.data.orderId,
         orderNumber: res.data.orderId,
@@ -281,10 +276,6 @@ export default function DirectSales() {
     }
   };
 
-
-  // =====================================================
-  // RETURN UI — CHỈ MỘT RETURN DUY NHẤT
-  // =====================================================
   return (
     <div className="h-full flex bg-background">
 
@@ -306,12 +297,15 @@ export default function DirectSales() {
         <div className="px-6 py-4 border-b bg-card/50">
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
             <TabsList className="w-full justify-start">
-              {categories.map((cat) => (
-                <TabsTrigger key={cat.id} value={cat.id} className="gap-2">
-                  <span>{cat.icon}</span>
-                  <span>{cat.name}</span>
-                </TabsTrigger>
-              ))}
+              {categories.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <TabsTrigger key={cat.id} value={cat.id} className="gap-2">
+                    <Icon className="h-4 w-4" />
+                    <span>{cat.name}</span>
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </Tabs>
         </div>
@@ -468,21 +462,21 @@ export default function DirectSales() {
               </div>
 
               {selectedProduct.hasSize && (
-             <div>
-  <Label>Chọn size</Label>
-  <div className="grid grid-cols-2 gap-3 mt-2">
-    {sizes.map((size) => (
-      <Button
-        key={size.id}
-        variant={selectedSize === size.id ? "default" : "outline"}
-        className="h-12 text-lg font-medium"
-        onClick={() => setSelectedSize(size.id)}
-      >
-        {size.name}
-      </Button>
-    ))}
-  </div>
-</div>
+                <div>
+                  <Label>Chọn size</Label>
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    {sizes.map((size) => (
+                      <Button
+                        key={size.id}
+                        variant={selectedSize === size.id ? "default" : "outline"}
+                        className="h-12 text-lg font-medium"
+                        onClick={() => setSelectedSize(size.id)}
+                      >
+                        {size.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
 
               )}
 
@@ -529,7 +523,6 @@ export default function DirectSales() {
           order={orderToPay}
         />
       )}
-
     </div>
   );
 }

@@ -79,7 +79,7 @@ export default function History() {
             {completedOrders.map((order) => (
               <TableRow key={order.id} className="border-border">
                 <TableCell className="font-medium text-accent">
-                  #{order.orderNumber}
+                  #{order.id}
                 </TableCell>
                 <TableCell>
                   {order.items.map((item, idx) => (
