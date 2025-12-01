@@ -8,7 +8,6 @@ const menuItems = [
   { icon: Receipt, label: "Đang pha", path: "/processing" },
   { icon: CreditCard, label: "Chờ thanh toán", path: "/payment" },
   { icon: History, label: "Lịch sử giao dịch", path: "/history" },
-  { icon: Settings, label: "Menu & Công thức", path: "/menu" },
 ];
 
 export function CashierSidebar() {
