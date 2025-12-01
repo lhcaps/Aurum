@@ -4,15 +4,23 @@ export interface Voucher {
   id: number;
   code: string;
   type: "percent" | "fixed";
+
+  // Cho voucher %
   discountPercent: number;
-  discountAmount: number;
   maxDiscountValue: number;
+
+  // Cho voucher tiền mặt
+  discountAmount: number;   // hoặc value, nhưng phải đồng bộ
+  value: number;            // thêm dòng này để Checkout hoạt động
+
+  // Điều kiện
   minOrderValue: number;
   requiredPoints: number;
+
   expiryDate: string;
   isUsed?: boolean;
-
 }
+
 
 // ============================================================
 // 🧩 Voucher Service – API + Mock Fallback

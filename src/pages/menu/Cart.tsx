@@ -51,8 +51,9 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="w-full px-6 py-8">
         <div className="space-y-6">
+
           {items.map((item) => (
             <div key={item.id} className="bg-card rounded-2xl p-6 shadow-soft">
               <div className="flex gap-4">

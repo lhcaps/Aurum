@@ -13,11 +13,11 @@ import { useMemo } from "react";
 export default function MainLayout() {
   const location = useLocation();
 
-  // ✅ Dùng useMemo để tránh tạo className mới mỗi render → không reset Sidebar context
+  // Đổi màu nền cho trang /menu/*
   const mainClass = useMemo(() => {
     const isMenuPage = location.pathname.startsWith("/menu");
     return cn(
-      "flex-1 overflow-y-auto p-6 transition-all duration-300",
+      "flex-1 min-h-[calc(100vh-3.5rem)] overflow-y-auto px-6 py-6",
       isMenuPage && "bg-muted/30"
     );
   }, [location.pathname]);
@@ -25,18 +25,20 @@ export default function MainLayout() {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen bg-background">
-        {/* 🟣 Sidebar trái */}
+
+        {/* Sidebar trái */}
         <AppSidebar />
 
-        {/* 🔸 Phần nội dung chính */}
-        <SidebarInset className="flex flex-col flex-1 min-h-screen">
+        {/* Nội dung chính */}
+        <SidebarInset className="flex flex-col flex-1 min-h-screen w-full max-w-full !m-0 !p-0 !rounded-none !shadow-none">
+
           {/* Header cố định */}
-          <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b bg-card px-4 shadow-sm">
+          <header className="sticky top-0 z-50 flex h-14 items-center justify-between 
+                             border-b bg-card px-4 shadow-sm">
+
             <div className="flex items-center gap-3">
-              {/* Nút bật/tắt sidebar */}
               <SidebarTrigger className="mr-1" />
 
-              {/* Logo & tiêu đề */}
               <div className="flex items-center gap-2">
                 <Coffee className="w-5 h-5 text-primary" />
                 <h1 className="text-lg font-semibold text-foreground">
@@ -45,19 +47,18 @@ export default function MainLayout() {
               </div>
             </div>
 
-            {/* (Tuỳ chọn) Khu vực bên phải */}
             <div className="flex items-center gap-4">
-              {/* Ví dụ: Thông báo, avatar, cài đặt */}
-              {/* <Button variant="ghost" size="icon"><Bell /></Button> */}
+              {/* Avatar / Bell có thể thêm sau */}
             </div>
           </header>
 
           <Separator />
 
-          {/* Nội dung trang con */}
+          {/* Outlet */}
           <main className={mainClass}>
             <Outlet />
           </main>
+
         </SidebarInset>
       </div>
     </SidebarProvider>

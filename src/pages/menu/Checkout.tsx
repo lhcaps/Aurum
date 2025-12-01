@@ -59,23 +59,20 @@ export default function Checkout() {
   const discountAmount = (() => {
     if (!selectedVoucher) return 0;
 
-    // Giảm theo %
+    // Giảm % theo Tạm tính
     if (selectedVoucher.type === "percent") {
       const percent = selectedVoucher.discountPercent || 0;
       const raw = (subtotal * percent) / 100;
 
-      // Nếu có maxDiscount thì chặn trần
-      const max = (selectedVoucher as any).maxDiscount ?? Infinity;
+      const max = selectedVoucher.maxDiscountValue ?? Infinity;
       return Math.min(raw, max);
     }
 
     // Giảm cố định
-    const rawFixed = selectedVoucher.value || 0;
-
-    // Không cho giảm quá tổng tiền trước giảm
-    const beforeDiscount = subtotal + serviceFee + deliveryFee;
-    return Math.min(rawFixed, beforeDiscount);
+    const fixed = selectedVoucher.discountAmount || 0;
+    return Math.min(fixed, subtotal);
   })();
+
 
   const total = Math.max(
     0,
@@ -422,9 +419,10 @@ export default function Checkout() {
                       <span className="text-primary font-bold">
                         {v.type === "percent"
                           ? `-${v.discountPercent}%`
-                          : `-${formatVND(v.value)}`
+                          : `-${formatVND(v.discountAmount || v.value || 0)}`
                         }
                       </span>
+
 
                     </div>
                     <p className="text-sm text-muted-foreground">
