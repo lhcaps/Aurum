@@ -6,6 +6,7 @@ class Product {
     Price, 
     ImageUrl, 
     Stock, 
+    CategoryId,
     CategoryName,  
     OutOfStock,
     AverageRating
@@ -16,6 +17,7 @@ class Product {
     this.Price = Price;
     this.ImageUrl = ImageUrl;
     this.Stock = Stock;
+    this.CategoryId = CategoryId?.toString() || null;
     this.CategoryName = CategoryName; 
     this.OutOfStock = OutOfStock || false;
     this.AverageRating = AverageRating || 0;
